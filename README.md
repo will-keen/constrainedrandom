@@ -52,4 +52,4 @@ Please feel free to contribute to the project, following these guidelines:
 
 ## Contact the author(s)
 
-Will Keen - william.keen@imgtec.com
+Will Keen - willkeencodes@gmail.com
