@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath('../'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'constrainedrandom'
-copyright = '2023, Imagination Technologies Ltd.'
+copyright = '2023, Imagination Technologies Ltd. 2024, Will Keen.'
 author = 'Will Keen'
 
 # -- General configuration ---------------------------------------------------

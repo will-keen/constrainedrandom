@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "constrainedrandom"
-version = "1.2.1"
+version = "1.2.2"
 description = "A library for creating and solving constrained randomization problems"
 readme = "README.md"
 requires-python = ">=3.8.3"
 license = { file="LICENSE" }
 keywords = ["constraint", "constrained", "random", "randomization", "verification"]
 authors = [
-  { name="Will Keen", email="william.keen@imgtec.com" },
+  { name="Will Keen", email="willkeencodes@gmail.com" },
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -23,5 +23,5 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/imaginationtech/constrainedrandom"
-"Bug Tracker" = "https://github.com/imaginationtech/constrainedrandom/issues"
+"Homepage" = "https://github.com/will-keen/constrainedrandom"
+"Bug Tracker" = "https://github.com/will-keen/constrainedrandom/issues"

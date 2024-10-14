@@ -66,7 +66,7 @@ This is all well and good, and gets the right answer. (Although, the only truly 
 
 However, with the procedural implementation, the user had to think up a correct way to get what they wanted. It's not immediately obvious from reading the code what it does - only the docstring tells us.
 
-With declarative-style constrained randomization, we can pretty easily read the problem being described in the code. Consdier the following:
+With declarative-style constrained randomization, we can pretty easily read the problem being described in the code. Consider the following:
 
 .. code-block:: python
 
