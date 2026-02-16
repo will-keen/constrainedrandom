@@ -17,7 +17,7 @@ from tests import (
     value_in_domain,
     weighted_choice,
 )
-from tests.features import basic, classes, derived, errors, order, rand_list, temp, user
+from tests.features import basic, classes, derived, errors, order, rand_list, set_random, temp, user
 from tests.main import main
 
 TEST_MODULES = [
@@ -34,6 +34,7 @@ TEST_MODULES = [
     errors,
     order,
     rand_list,
+    set_random,
     temp,
     user,
 ]
