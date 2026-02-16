@@ -109,6 +109,22 @@ class RandObj:
                         result.append((len_constr, (list_var, rand_list_length)))
         return result
 
+    def set_random(self, _random: Optional[random.Random] = None) -> None:
+        '''
+        Set the random instance for this RandObj and propagate to all existing random variables.
+
+        This is useful when the random instance is not available at construction time
+        but needs to be set before randomization. Unlike passing ``_random`` to ``__init__``,
+        this method propagates to :class:`RandVar` objects that were already created.
+
+        :param _random: A ``random.Random`` instance to use for randomization, or ``None`` to
+            use the default random module.
+        :return: ``None``
+        '''
+        self._random = _random
+        for rand_var in self._random_vars.values():
+            rand_var._random = _random
+
     def set_solver_mode(
         self,
         *,
