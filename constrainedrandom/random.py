@@ -53,5 +53,5 @@ def dist(dist_dict: utils.Dist, _random: Optional[random.Random]=None) -> Any:
         _random = random
     answer = weighted_choice(choices_dict=dist_dict, _random=_random)[0]
     if isinstance(answer, range):
-        return _random.randrange(answer.start, answer.stop)
+        return _random.randrange(answer.start, answer.stop, answer.step)
     return answer
