@@ -81,6 +81,27 @@ class BasicThorough(BasicFeatures):
         return randobj
 
 
+class RangeWithStep(testutils.RandObjTestBase):
+    '''
+    Test range domains that use a step.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('evens', domain=range(0, 10, 2))
+        r.add_rand_var('down', domain=range(10, 0, -1))
+        r.add_rand_var('dist_step', domain={range(0, 10, 2): 1})
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertIn(result['evens'], range(0, 10, 2))
+            self.assertIn(result['down'], range(10, 0, -1))
+            self.assertIn(result['dist_step'], range(0, 10, 2))
+
+
 class BitsLargeWidth(testutils.RandObjTestBase):
     '''
     Test that large values of bits work.

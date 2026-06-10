@@ -206,7 +206,7 @@ class RandVar:
         return self._get_random().choice(self.domain)
 
     def _randomize_range(self) -> int:
-        return self._get_random().randrange(self.domain.start, self.domain.stop)
+        return self._get_random().randrange(self.domain.start, self.domain.stop, self.domain.step)
 
     def _randomize_dist(self) -> Any:
         return dist(self.domain, self._get_random())
