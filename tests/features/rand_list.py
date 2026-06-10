@@ -534,6 +534,30 @@ class RandSizeListConstrainedMoreThoroughValue(RandSizeListValue, RandSizeListCo
     '''
 
 
+class RandSizeListOnlyListConstrained(testutils.RandObjTestBase):
+    '''
+    Test a random sized list where only the list is constrained.
+    The variable defining its length must still be re-solved.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('length', domain=range(4))
+        r.add_rand_var('listvar', bits=4, rand_length='length')
+        r.add_rand_var('value', bits=4)
+        def in_list(value, listvar):
+            return value in listvar
+        r.add_constraint(in_list, ('value', 'listvar'))
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertEqual(len(result['listvar']), result['length'], "Length incorrect")
+            self.assertIn(result['value'], result['listvar'], "Constraint not respected")
+
+
 class RandSizeListHard(testutils.RandObjTestBase):
     '''
     Test a much more difficult problem with randomized-length lists.

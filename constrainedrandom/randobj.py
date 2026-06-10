@@ -336,6 +336,11 @@ class RandObj:
                     if var in self._rand_list_lengths:
                         for list_var in self._rand_list_lengths[var]:
                             self._constrained_vars.add(list_var)
+                    # If var has a random length, the variable defining
+                    # its length must also be considered as constrained.
+                    rand_length = self._random_vars[var].rand_length
+                    if rand_length is not None:
+                        self._constrained_vars.add(rand_length)
         else:
             raise TypeError(f"'variables' must be of type str, tuple or list, got {variables}")
         self._problem_changed = True
@@ -398,6 +403,11 @@ class RandObj:
                     constraints.append((constr, var_names))
                     for var_name in var_names:
                         constrained_var_names.add(var_name)
+                        # If var has a random length, the variable defining
+                        # its length must also be considered as constrained.
+                        rand_length = self._random_vars[var_name].rand_length
+                        if rand_length is not None:
+                            constrained_var_names.add(rand_length)
                     problem_changed = True
             # If a variable becomes constrained due to temporary multi-variable
             # constraints, we must respect single var temporary constraints too.
