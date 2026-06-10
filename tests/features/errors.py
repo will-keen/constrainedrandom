@@ -174,3 +174,23 @@ class EmptyListDependent(testutils.RandObjTestBase):
             return x in y
         randobj.add_constraint(in_list_c, ('list_member', 'list'))
         return randobj
+
+
+class AddConstraintUnknownVar(testutils.RandObjTestBase):
+    '''
+    Test that a failed add_constraint leaves the object usable.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.add_rand_var('a', domain=range(10))
+        def eq(a, b):
+            return a == b
+        self.assertRaises(KeyError, randobj.add_constraint, eq, ('a', 'b'))
+        return randobj
+
+    def check(self, results):
+        for result in results:
+            self.assertIn(result['a'], range(10))

@@ -325,10 +325,12 @@ class RandObj:
                 self._random_vars[variables[0]].add_constraint(constr)
             else:
                 # Multi-variable constraint
-                self._constraints.append((constr, variables))
+                # Validate the variables before changing any state.
                 for var in variables:
                     if var not in self._random_vars:
                         raise KeyError(f"Variable '{var}' was not in the set of random variables!")
+                self._constraints.append((constr, variables))
+                for var in variables:
                     self._constrained_vars.add(var)
                     # If var constrains other variables' lengths,
                     # those other variables must also be considered
