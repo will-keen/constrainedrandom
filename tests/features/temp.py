@@ -250,6 +250,42 @@ class WithValuesWithConstraints(testutils.RandObjTestBase):
             self.assertEqual(result['a'], 3)
 
 
+class WithValuesAllConstrainedVars(testutils.RandObjTestBase):
+    '''
+    Test with_values when values are given for all constrained variables.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('a', domain=range(10))
+        r.add_rand_var('b', domain=range(10))
+        # Unconstrained, so that results still differ between seeds
+        # when both constrained variables are given values.
+        r.add_rand_var('c', domain=range(100))
+        def sum_gt_5(a, b):
+            return a + b > 5
+        r.add_constraint(sum_gt_5, ('a', 'b'))
+        # Skip the naive solver so the values reach MultiVarProblem.
+        r.set_solver_mode(naive=False)
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertIn(result['a'], range(10))
+            self.assertIn(result['b'], range(10))
+            self.assertGreater(result['a'] + result['b'], 5)
+
+    def get_tmp_values(self):
+        return {'a': 5, 'b': 5}
+
+    def tmp_check(self, results):
+        for result in results:
+            self.assertEqual(result['a'], 5)
+            self.assertEqual(result['b'], 5)
+
+
 class TrickyTempValues(basic.MultiSum):
     '''
     Force use of MultiVarProblem with a difficult problem, and
