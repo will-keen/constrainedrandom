@@ -72,7 +72,12 @@ def is_pure(function: Callable) -> bool:
     # A function that has closure variables that are nonlocal or global
     # is impure. We count functions that use builtins as pure, assuming
     # those builtins themselves are pure.
-    closure = getclosurevars(function)
+    # getclosurevars only accepts plain functions. Treat other callables
+    # (e.g. functools.partial) as impure.
+    try:
+        closure = getclosurevars(function)
+    except TypeError:
+        return False
     if len(closure.nonlocals) > 0 or len(closure.globals) > 0:
         return False
     # Look at default argument values. If they point to mutable objects,
