@@ -6,6 +6,7 @@ Test is_pure function from utils.
 '''
 
 import unittest
+from functools import partial
 
 from constrainedrandom.utils import is_pure
 
@@ -37,6 +38,15 @@ class Dummy:
         return global_immutable_var
 
 dummy_instance = Dummy(0, 10)
+
+
+# Non-function callables
+class CallableClass:
+
+    def __call__(self, value):
+        return value < 10
+
+callable_instance = CallableClass()
 
 
 # Global functions
@@ -142,6 +152,14 @@ class IsPureTests(unittest.TestCase):
         self.assertEqual(is_pure(dummy_instance.return_mutable), False)
         self.assertEqual(is_pure(dummy_instance.return_immutable), False)
         self.assertEqual(is_pure(dummy_instance.impure), False)
+
+    def test_non_function_callables(self):
+        '''
+        Test that callables that are not plain functions are
+        identified as impure.
+        '''
+        self.assertEqual(is_pure(partial(pure_global_fn, 2)), False)
+        self.assertEqual(is_pure(callable_instance), False)
 
     def test_global_functions(self):
         '''
