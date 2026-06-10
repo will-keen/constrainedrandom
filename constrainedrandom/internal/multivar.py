@@ -83,6 +83,11 @@ class MultiVarProblem:
         # isn't too large.
         sorted_vars = sorted(vars, key=lambda x: x.order)
 
+        # All variables may have concrete values. Use one empty group
+        # so that the constraints are still checked against those values.
+        if len(sorted_vars) == 0:
+            return [[]]
+
         # Currently this is just a flat list. Group into as large groups as possible.
         result = [[sorted_vars[0]]]
         index = 0
