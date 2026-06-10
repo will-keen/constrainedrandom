@@ -286,6 +286,39 @@ class WithValuesAllConstrainedVars(testutils.RandObjTestBase):
             self.assertEqual(result['b'], 5)
 
 
+class WithValuesRandLengthList(testutils.RandObjTestBase):
+    '''
+    Test that a list given in with_values keeps its value
+    while its length variable is re-randomized.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('length', domain=range(1, 4))
+        r.add_rand_var('listvar', bits=4, rand_length='length')
+        # Unconstrained, so that results still differ between seeds
+        # when the list is given a value.
+        r.add_rand_var('c', domain=range(100))
+        def length_matches(length, listvar):
+            return length == len(listvar)
+        r.add_constraint(length_matches, ('length', 'listvar'))
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertEqual(result['length'], len(result['listvar']), "Length incorrect")
+
+    def get_tmp_values(self):
+        return {'listvar': [3, 6]}
+
+    def tmp_check(self, results):
+        for result in results:
+            self.assertEqual(result['listvar'], [3, 6], "Temp value not respected")
+            self.assertEqual(result['length'], 2, "Length incorrect")
+
+
 class TrickyTempValues(basic.MultiSum):
     '''
     Force use of MultiVarProblem with a difficult problem, and

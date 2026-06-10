@@ -480,6 +480,9 @@ class RandObj:
                             # Need to re-randomize all dependent vars as their
                             # length has changed.
                             for dependent_var_name in self._rand_list_lengths[list_length_name]:
+                                # Don't re-randomize if we've specified a concrete value.
+                                if dependent_var_name in with_values:
+                                    continue
                                 self._random_vars[dependent_var_name].set_rand_length(length_result)
                                 tmp_constraints = tmp_single_var_constraints.get(dependent_var_name, [])
                                 result[dependent_var_name] = self._random_vars[dependent_var_name].randomize(tmp_constraints, debug)
