@@ -13,6 +13,7 @@ from .main import main
 from .bits import *
 from .determinism import *
 from .is_pure import *
+from .weighted_choice import *
 from .features.basic import *
 from .features.classes import *
 from .features.errors import *

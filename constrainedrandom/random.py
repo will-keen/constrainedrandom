@@ -26,7 +26,7 @@ def weighted_choice(choices_dict: utils.Dist, _random: Optional[random.Random]=N
     '''
     if _random is None:
         _random = random
-    return _random.choices(tuple(choices_dict.keys()), weights=tuple(choices_dict.values()))
+    return _random.choices(tuple(choices_dict.keys()), weights=tuple(choices_dict.values()))[0]
 
 
 def dist(dist_dict: utils.Dist, _random: Optional[random.Random]=None) -> Any:
@@ -51,7 +51,7 @@ def dist(dist_dict: utils.Dist, _random: Optional[random.Random]=None) -> Any:
     '''
     if _random is None:
         _random = random
-    answer = weighted_choice(choices_dict=dist_dict, _random=_random)[0]
+    answer = weighted_choice(choices_dict=dist_dict, _random=_random)
     if isinstance(answer, range):
         return _random.randrange(answer.start, answer.stop, answer.step)
     return answer
