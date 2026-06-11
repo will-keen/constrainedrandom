@@ -133,6 +133,30 @@ class RandLengthListAsLength(testutils.RandObjTestBase):
         return randobj
 
 
+class RandLengthErrorMessages(testutils.RandObjTestBase):
+    '''
+    Test that rand_length errors name the offending rand_length
+    variable, not the variable being added, and that the object
+    remains usable after the failed calls.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        with self.assertRaisesRegex(ValueError, "'missing'"):
+            randobj.add_rand_var('listvar', bits=4, rand_length='missing')
+        randobj.add_rand_var('list_a', bits=4, length=4)
+        with self.assertRaisesRegex(ValueError, "'list_a'"):
+            randobj.add_rand_var('list_b', bits=4, rand_length='list_a')
+        randobj.add_rand_var('a', domain=range(10))
+        return randobj
+
+    def check(self, results):
+        for result in results:
+            self.assertIn(result['a'], range(10))
+
+
 class EmptyListDependent(testutils.RandObjTestBase):
     '''
     Test a random length list which is empty
