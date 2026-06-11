@@ -117,6 +117,22 @@ class NegativeRandLength(testutils.RandObjTestBase):
         return randobj
 
 
+class RandLengthListAsLength(testutils.RandObjTestBase):
+    '''
+    Test that a random-length list is rejected as the
+    length of another random list.
+    '''
+
+    EXPECTED_ERROR_INIT = ValueError
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.add_rand_var('length', domain=range(1, 5))
+        randobj.add_rand_var('list_a', bits=4, rand_length='length')
+        randobj.add_rand_var('list_b', bits=4, rand_length='list_a')
+        return randobj
+
+
 class EmptyListDependent(testutils.RandObjTestBase):
     '''
     Test a random length list which is empty

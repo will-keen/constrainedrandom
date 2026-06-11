@@ -252,7 +252,7 @@ class RandObj:
             if rand_length not in self._random_vars:
                 raise ValueError(f"random variable length '{name}' is not valid," \
                     " it must be the name of an existing random variable.")
-            if self._random_vars[rand_length].length is not None:
+            if self._random_vars[rand_length].is_list():
                 raise ValueError(f"random length '{name}' must be a scalar random" \
                 " variable, but is itself a random list.")
             # Track that this variable depends on another for its length.
