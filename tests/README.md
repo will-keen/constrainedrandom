@@ -32,7 +32,11 @@ python3 -m tests --perf
 
 Tests can optionally be tagged using `--perf-results-tag <tag>`. This can be useful to identify tests run with particular changes.
 
-Creating performance graphs requires the [`bokeh`](https://bokeh.org/) package to be installed at a version >= v3.4.1. This is not included in `constrainedrandom`'s `pyproject.toml` dependencies to avoid a bloated installation.
+Creating performance graphs requires the [`bokeh`](https://bokeh.org/) package to be installed at a version >= v3.4.1. This is not included in `constrainedrandom`'s core dependencies to avoid a bloated installation. Install it with the `dev` optional dependency group:
+
+```bash
+pip install -e ".[dev]"
+```
 
 To plot performance graphs, run the following:
 
