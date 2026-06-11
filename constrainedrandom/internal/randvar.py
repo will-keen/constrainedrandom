@@ -543,11 +543,7 @@ class RandVar:
                     f" constraints for random variable '{self.name}'.",
                     str(self.debug_info),
                 )
-            problem = constraint.Problem()
-            problem.addVariable(self.name, (value,))
-            for con in constraints:
-                problem.addConstraint(con, (self.name,))
-            value_valid = problem.getSolution() is not None
+            value_valid = all(con(value) for con in constraints)
             if not value_valid:
                 if debug:
                     # Capture all failing values as we go
@@ -628,11 +624,7 @@ class RandVar:
             if iterations >= max_iterations:
                 # This method has failed.
                 return None
-            problem = constraint.Problem()
-            problem.addVariable(self.name, (values,))
-            for con in list_constraints:
-                problem.addConstraint(con, (self.name,))
-            values_valid = problem.getSolution() is not None
+            values_valid = all(con(values) for con in list_constraints)
             if not values_valid:
                 if debug:
                     # Capture all failing values as we go
@@ -696,14 +688,10 @@ class RandVar:
             min_group_size = len(checked) + 1
             for idx in range(min_group_size, length):
                 tmp_values = values[:idx]
-                problem = constraint.Problem()
-                problem.addVariable(self.name, (tmp_values,))
-                for con in list_constraints:
-                    problem.addConstraint(con, (self.name,))
                 # This may fail if the user is relying on the
                 # list being fully-sized in their constraint.
                 try:
-                    tmp_values_valid = problem.getSolution() is not None
+                    tmp_values_valid = all(con(tmp_values) for con in list_constraints)
                 except Exception:
                     tmp_values_valid = False
                 if tmp_values_valid:
@@ -715,11 +703,7 @@ class RandVar:
                     checked = tmp_values
             values = checked + [self.randomize_once(constraints, using_temp_constraints, debug) \
                 for _ in range(length - len(checked))]
-            problem = constraint.Problem()
-            problem.addVariable(self.name, (values,))
-            for con in list_constraints:
-                problem.addConstraint(con, (self.name,))
-            values_valid = problem.getSolution() is not None
+            values_valid = all(con(values) for con in list_constraints)
             if debug and not values_valid:
                 # Capture failure info as we go along
                 self.debug_info.add_failure(

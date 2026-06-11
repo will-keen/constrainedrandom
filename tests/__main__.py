@@ -11,6 +11,7 @@ from .main import main
 
 # Import all tests for unittest to run
 from .bits import *
+from .check_constraints import *
 from .determinism import *
 from .is_pure import *
 from .satisfies_constraints import *

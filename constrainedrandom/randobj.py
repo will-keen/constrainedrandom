@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-import constraint
 import random
 from collections import defaultdict
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set
@@ -526,19 +525,11 @@ class RandObj:
             while not constraints_satisfied:
                 if attempts == max:
                     break
-                problem = constraint.Problem()
-                for var_name in constrained_var_names:
-                    problem.addVariable(var_name, (result[var_name],))
-                for _constraint, variables in constraints:
-                    problem.addConstraint(_constraint, variables)
-                solutions = problem.getSolutions()
-                if len(solutions) > 0:
-                    # At least one solution was found, all is well
+                if utils.check_constraints(constraints, result):
+                    # The current values satisfy the constraints, all is well
                     constraints_satisfied = True
-                    solution = self._get_random().choice(solutions)
-                    result.update(solution)
                 else:
-                    # No solution found, re-randomize and try again
+                    # Constraints not satisfied, re-randomize and try again
                     # List length variables first
                     for list_length_name in list_length_names:
                         # If the length-defining variable is constrained,
