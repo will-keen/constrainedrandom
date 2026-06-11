@@ -22,6 +22,14 @@ dependencies = [
     "python-constraint>=1.4.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "bokeh>=3.4.1",
+]
+benchmarks = [
+    "pyvsc",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/will-keen/constrainedrandom"
 "Bug Tracker" = "https://github.com/will-keen/constrainedrandom/issues"
