@@ -61,6 +61,30 @@ def unique(list_variable: Iterable[Any]) -> bool:
     return True
 
 
+def check_constraints(
+    constraints: Iterable[ConstraintAndVars],
+    values: Dict[str, Any],
+) -> bool:
+    '''
+    Check concrete values against constraints.
+
+    Much faster than constructing a ``constraint.Problem``
+    when the values are already concrete, as there is no
+    solution space to search. Stops at the first
+    unsatisfied constraint.
+
+    :param constraints: Constraints and the names of the
+        variables they apply to.
+    :param values: Concrete values, keyed by variable name.
+    :return: ``True`` if all constraints are satisfied,
+        ``False`` otherwise.
+    '''
+    return all(
+        constr(*(values[var_name] for var_name in var_names))
+        for constr, var_names in constraints
+    )
+
+
 def is_pure(function: Callable) -> bool:
     '''
     Determine whether a function is "pure", i.e. its return value
