@@ -59,6 +59,10 @@ Repeatability
 
 The ``RandObj`` class uses the standard Python ``random`` package under the hood. ``random`` provides repeatable randomization when given the same seed.
 
+Repeatability is guaranteed for a given seed and a given version of ``constrainedrandom``. Future development may change the values produced for a given seed. A release that only increments the patch version must not change randomization results. A release that does change the values produced for a given seed increments at least the minor version, with an explanation in the release notes.
+
+For example, the same seed produces identical results on ``1.2.2`` and ``1.2.3``, but may produce different results on ``1.3.0``.
+
 There are two ways to seed the ``random`` package, either globally or using an instance of the ``random.Random`` class.
 
 Global seeding
