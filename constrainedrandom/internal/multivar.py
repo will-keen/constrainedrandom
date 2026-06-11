@@ -48,7 +48,7 @@ class MultiVarProblem:
         self.max_iterations = max_iterations
         self.max_domain_size = max_domain_size
         self.order: Optional[List[List['RandVar']]] = None
-        self.debug_info = Optional[debug.RandomizationDebugInfo]
+        self.debug_info: Optional[debug.RandomizationDebugInfo] = None
 
     def determine_order(self, with_values: Dict[str, Any]) -> List[List['RandVar']]:
         '''
