@@ -153,13 +153,27 @@ class IsPureTests(unittest.TestCase):
         self.assertEqual(is_pure(dummy_instance.return_immutable), False)
         self.assertEqual(is_pure(dummy_instance.impure), False)
 
-    def test_non_function_callables(self):
+    def test_callable_instance(self):
         '''
-        Test that callables that are not plain functions are
-        identified as impure.
+        Test that an instance with __call__ is identified as impure.
         '''
-        self.assertEqual(is_pure(partial(pure_global_fn, 2)), False)
         self.assertEqual(is_pure(callable_instance), False)
+
+    def test_partial(self):
+        '''
+        Test that a partial is pure only if the function it wraps is pure
+        and its bound arguments are immutable.
+        '''
+        self.assertEqual(is_pure(partial(pure_global_fn, 2)), True)
+        self.assertEqual(is_pure(partial(pure_global_fn, value=2)), True)
+        # Bound argument is mutable.
+        self.assertEqual(is_pure(partial(pure_global_fn, global_mutable_var)), False)
+        self.assertEqual(is_pure(partial(pure_global_fn, value=global_mutable_var)), False)
+        # Wrapped function is impure.
+        self.assertEqual(is_pure(partial(impure_global_fn, 2)), False)
+        # No bound arguments: purity follows the wrapped function.
+        self.assertEqual(is_pure(partial(pure_global_fn)), True)
+        self.assertEqual(is_pure(partial(impure_global_fn)), False)
 
     def test_global_functions(self):
         '''

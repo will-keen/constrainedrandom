@@ -5,8 +5,13 @@
 Miscellaneous utilities for the constrainedrandom package.
 '''
 
+from functools import partial
 from inspect import getclosurevars
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
+
+
+# Types treated as immutable when deciding whether a value keeps a function pure.
+_IMMUTABLE_TYPES = (str, int, bool, float, tuple, complex, bytes)
 
 
 # Distribution type
@@ -69,11 +74,21 @@ def is_pure(function: Callable) -> bool:
     # and is therefore not pure.
     if hasattr(function, '__self__'):
         return False
+    # A partial is pure if the function it wraps is pure and its bound
+    # arguments are all immutable.
+    if isinstance(function, partial):
+        if not is_pure(function.func):
+            return False
+        if not all(type(arg) in _IMMUTABLE_TYPES for arg in function.args):
+            return False
+        if not all(type(arg) in _IMMUTABLE_TYPES for arg in function.keywords.values()):
+            return False
+        return True
     # A function that has closure variables that are nonlocal or global
     # is impure. We count functions that use builtins as pure, assuming
     # those builtins themselves are pure.
     # getclosurevars only accepts plain functions. Treat other callables
-    # (e.g. functools.partial) as impure.
+    # (e.g. instances with __call__) as impure.
     try:
         closure = getclosurevars(function)
     except TypeError:
@@ -84,6 +99,6 @@ def is_pure(function: Callable) -> bool:
     # this is not a pure function.
     if function.__defaults__ is not None:
         for default_val in function.__defaults__:
-            if type(default_val) not in (str, int, bool, float, tuple, complex, bytes):
+            if type(default_val) not in _IMMUTABLE_TYPES:
                 return False
     return True
