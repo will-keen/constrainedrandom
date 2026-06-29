@@ -553,9 +553,13 @@ class RandSizeListOnlyListConstrained(testutils.RandObjTestBase):
         return r
 
     def check(self, results):
+        seen_lengths = set()
         for result in results:
             self.assertEqual(len(result['listvar']), result['length'], "Length incorrect")
             self.assertIn(result['value'], result['listvar'], "Constraint not respected")
+            seen_lengths.add(result['length'])
+        # length must stay a free variable, not get frozen by the list's constraint
+        self.assertGreater(len(seen_lengths), 1, "Length did not vary - it was not free")
 
 
 class RandSizeListHard(testutils.RandObjTestBase):
