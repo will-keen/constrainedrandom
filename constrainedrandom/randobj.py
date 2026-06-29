@@ -61,6 +61,8 @@ class RandObj:
         # Prefix 'internal use' variables with '_', as randomized results are populated to the class
         self._random: Optional[random.Random] = _random
         self._random_vars: Dict[str, RandVar] = {}
+        # This maps the names of variables used as random lengths (keys) to a list of the variable
+        # names that they set the length for (values).
         self._rand_list_lengths: Dict[str, List[str]]= defaultdict(list)
         self._constraints: List[utils.ConstraintAndVars] = []
         self._constrained_vars : Set[str] = set()
@@ -108,6 +110,65 @@ class RandObj:
                         len_constr = lambda _list_var, _length : len(_list_var) == _length
                         result.append((len_constr, (list_var, rand_list_length)))
         return result
+
+    def _derive_lengths_from_concrete_lists(self, with_values: Dict[str, Any]) -> None:
+        '''
+        Set each length variable to the length of any list given a concrete value
+        in ``with_values``. Raises ``ValueError`` on conflicting values.
+
+        :param with_values: The concrete values passed to the ``randomize()`` call.
+        :raise ValueError: If lists with the same governing random length
+            variable have different lengths.
+        '''
+        if len(with_values) == 0:
+            return
+        for length_name, list_names in self._rand_list_lengths.items():
+            # Create a map of list names to concrete values for lists
+            # governed by one random length variable
+            concrete_lengths = {
+                list_name: len(with_values[list_name])
+                for list_name in list_names if list_name in with_values
+            }
+            if len(concrete_lengths) == 0:
+                continue
+            # Check the lengths are all the same
+            final_length: int | None = None
+            for length in concrete_lengths.values():
+                if final_length is None:
+                    final_length = length
+                elif length != final_length:
+                    raise ValueError(f"with_values gives lists sharing length"
+                        f" '{length_name}' with different lengths: {concrete_lengths}")
+            # Check that the length itself isn't inconsistently overridden in with_values
+            if length_name in with_values and with_values[length_name] != final_length:
+                raise ValueError(f"with_values gives '{length_name}'="
+                    f"{with_values[length_name]} but lists whose lengths "
+                    f"are governed by that variable of differing lengths: {concrete_lengths}")
+            # Modify in-place
+            with_values[length_name] = final_length
+
+    def _check_with_values(self, with_values: Dict[str, Any]) -> None:
+        '''
+        Check that each concrete value in ``with_values`` is a valid
+        assignment to its variable.
+
+        :param with_values: The concrete values passed to the ``randomize()`` call.
+        :raises KeyError: If a name in ``with_values`` is not a random variable.
+        :raises ValueError: If a value is not in its variable's domain.
+        :raises RandomizationError: If a value does not satisfy its variable's
+            constraints.
+        '''
+        for name, value in with_values.items():
+            if name not in self._random_vars:
+                raise KeyError(f"with_values gives a value for '{name}',"
+                    " which is not a random variable.")
+            rand_var = self._random_vars[name]
+            if not rand_var.value_in_domain(value):
+                raise ValueError(f"with_values gives '{name}' the value {value},"
+                    f" which is not in that variable's domain - check its definition.")
+            if not rand_var.satisfies_constraints(value):
+                raise utils.RandomizationError(f"with_values gives '{name}' the value"
+                    f" {value}, which does not satisfy its constraints.")
 
     def set_solver_mode(
         self,
@@ -360,6 +421,7 @@ class RandObj:
         *,
         with_values: Optional[Dict[str, Any]]=None,
         with_constraints: Optional[Iterable[utils.ConstraintAndVars]]=None,
+        check_with_values: bool=True,
         debug: bool=False,
     ) -> None:
         '''
@@ -371,6 +433,9 @@ class RandObj:
         :param with_constraints: Temporary constraints for this randomization only.
             List of tuples, consisting of a constraint function and an iterable
             containing the variables it applies to.
+        :param check_with_values: If ``True``, check that each value in
+            ``with_values`` is a valid assignment to its variable. Set ``False``
+            to skip this check and assign the values regardless.
         :param debug: ``True`` to run in debug mode. Slower, but collects
             all debug info along the way and not just the final failure.
         :raises RandomizationError: If no solution is found
@@ -425,7 +490,10 @@ class RandObj:
         list_length_names = sorted(self._rand_list_lengths.keys())
 
         # Process concrete values - use these preferentially
-        with_values = with_values if with_values is not None else {}
+        with_values = dict(with_values) if with_values else {}
+        self._derive_lengths_from_concrete_lists(with_values)
+        if check_with_values:
+            self._check_with_values(with_values)
 
         # Randomize list length vars first
         for list_length_name in list_length_names:
@@ -482,9 +550,6 @@ class RandObj:
                             # Need to re-randomize all dependent vars as their
                             # length has changed.
                             for dependent_var_name in self._rand_list_lengths[list_length_name]:
-                                # Don't re-randomize if we've specified a concrete value.
-                                if dependent_var_name in with_values:
-                                    continue
                                 self._random_vars[dependent_var_name].set_rand_length(length_result)
                                 tmp_constraints = tmp_single_var_constraints.get(dependent_var_name, [])
                                 result[dependent_var_name] = self._random_vars[dependent_var_name].randomize(tmp_constraints, debug)
