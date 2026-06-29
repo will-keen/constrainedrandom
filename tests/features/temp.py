@@ -5,9 +5,11 @@
 Test temporary constraints and values.
 '''
 
+import unittest
 from random import Random
 
-from constrainedrandom import RandObj
+from constrainedrandom import RandObj, RandomizationError
+from constrainedrandom.utils import unique
 from . import basic
 from .. import testutils
 
@@ -301,9 +303,6 @@ class WithValuesRandLengthList(testutils.RandObjTestBase):
         # Unconstrained, so that results still differ between seeds
         # when the list is given a value.
         r.add_rand_var('c', domain=range(100))
-        def length_matches(length, listvar):
-            return length == len(listvar)
-        r.add_constraint(length_matches, ('length', 'listvar'))
         return r
 
     def check(self, results):
@@ -317,6 +316,180 @@ class WithValuesRandLengthList(testutils.RandObjTestBase):
         for result in results:
             self.assertEqual(result['listvar'], [3, 6], "Temp value not respected")
             self.assertEqual(result['length'], 2, "Length incorrect")
+
+
+class WithValuesRandLengthMultiList(testutils.RandObjTestBase):
+    '''
+    Test that giving one of several lists that share a length variable a
+    concrete value fixes the length variable, and the other lists follow.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('length', domain=range(1, 6))
+        r.add_rand_var('list_a', bits=4, rand_length='length')
+        r.add_rand_var('list_b', bits=4, rand_length='length')
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertEqual(result['length'], len(result['list_a']), "Length incorrect")
+            self.assertEqual(result['length'], len(result['list_b']), "Length incorrect")
+
+    def get_tmp_values(self):
+        return {'list_a': [1, 2, 9]}
+
+    def tmp_check(self, results):
+        for result in results:
+            self.assertEqual(result['list_a'], [1, 2, 9], "Temp value not respected")
+            self.assertEqual(result['length'], 3, "Length not derived from list value")
+            self.assertEqual(len(result['list_b']), 3, "Other list did not follow length")
+
+
+class WithValuesRandLengthAndLength(testutils.RandObjTestBase):
+    '''
+    Test giving both a list and its length variable concrete values
+    that agree.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('length', domain=range(1, 6))
+        r.add_rand_var('listvar', bits=4, rand_length='length')
+        # Unconstrained, so results still differ between seeds.
+        r.add_rand_var('c', domain=range(100))
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertEqual(result['length'], len(result['listvar']), "Length incorrect")
+
+    def get_tmp_values(self):
+        return {'length': 2, 'listvar': [3, 6]}
+
+    def tmp_check(self, results):
+        for result in results:
+            self.assertEqual(result['listvar'], [3, 6], "Temp value not respected")
+            self.assertEqual(result['length'], 2, "Length incorrect")
+
+
+class WithValuesRandLengthContradictions(unittest.TestCase):
+    '''
+    Test that contradictory concrete values for a random list and its
+    length variable raise.
+
+    These are plain ``TestCase`` checks because the contradiction only
+    arises for a specific ``with_values`` passed to ``randomize``, which
+    the ``RandObjTestBase`` error mechanism cannot express.
+    '''
+
+    def test_length_value_mismatch(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('length', domain=range(1, 6))
+        r.add_rand_var('listvar', bits=4, rand_length='length')
+        # length given as 3, but the list given has length 2.
+        with self.assertRaises(ValueError):
+            r.randomize(with_values={'length': 3, 'listvar': [3, 6]})
+
+    def test_shared_length_lists_differ(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('length', domain=range(1, 6))
+        r.add_rand_var('list_a', bits=4, rand_length='length')
+        r.add_rand_var('list_b', bits=4, rand_length='length')
+        with self.assertRaises(ValueError):
+            r.randomize(with_values={'list_a': [1, 2], 'list_b': [1, 2, 3]})
+
+    def test_derived_length_out_of_domain(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('length', domain=range(1, 4))
+        r.add_rand_var('listvar', bits=4, rand_length='length')
+        # A 5-element list implies length 5, outside range(1, 4).
+        with self.assertRaises(ValueError):
+            r.randomize(with_values={'listvar': [1, 2, 3, 4, 5]})
+
+
+class WithValuesValidation(unittest.TestCase):
+    '''
+    Test that with_values is validated against the variables.
+    '''
+
+    def test_unknown_variable(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('a', domain=range(10))
+        with self.assertRaises(KeyError):
+            r.randomize(with_values={'b': 0})
+
+    def test_value_out_of_domain(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('a', domain=range(10))
+        with self.assertRaises(ValueError):
+            r.randomize(with_values={'a': 10})
+
+    def test_check_disabled(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('a', domain=range(10))
+        r.randomize(with_values={'a': 10}, check_with_values=False)
+        self.assertEqual(r.a, 10)
+
+    def test_single_var_constraint_violated(self):
+        # Value is in domain but violates the variable's own constraint.
+        r = RandObj(Random(0))
+        r.add_rand_var('a', domain=range(10), constraints=[lambda v: v < 5])
+        with self.assertRaises(RandomizationError):
+            r.randomize(with_values={'a': 7})
+
+    def test_single_var_constraint_via_add_constraint_violated(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('a', domain=range(10))
+        r.add_constraint(lambda v: v < 5, ('a',))
+        with self.assertRaises(RandomizationError):
+            r.randomize(with_values={'a': 7})
+
+    def test_multi_var_constraint_violated(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('x', domain=range(10))
+        r.add_rand_var('y', domain=range(10))
+        r.add_constraint(lambda x, y: x + y > 5, ('x', 'y'))
+        with self.assertRaises(RandomizationError):
+            r.randomize(with_values={'x': 0, 'y': 0})
+
+    def test_constraint_satisfied_value_ok(self):
+        # A valid value that satisfies the constraint is accepted.
+        r = RandObj(Random(0))
+        r.add_rand_var('a', domain=range(10), constraints=[lambda v: v < 5])
+        r.randomize(with_values={'a': 3})
+        self.assertEqual(r.a, 3)
+
+    def test_rand_length_list_element_constraint_violated(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('length', domain=range(1, 6))
+        r.add_rand_var('listvar', domain=range(10), rand_length='length',
+                       constraints=[lambda v: v != 7])
+        # In domain, right length, but element 7 violates the constraint.
+        with self.assertRaises(RandomizationError):
+            r.randomize(with_values={'listvar': [1, 7, 3]})
+
+    def test_rand_length_list_constraint_violated(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('length', domain=range(1, 6))
+        r.add_rand_var('listvar', domain=range(10), rand_length='length',
+                       list_constraints=[unique])
+        with self.assertRaises(RandomizationError):
+            r.randomize(with_values={'listvar': [1, 1, 2]})
+
+    def test_rand_length_list_value_ok(self):
+        r = RandObj(Random(0))
+        r.add_rand_var('length', domain=range(1, 6))
+        r.add_rand_var('listvar', domain=range(10), rand_length='length',
+                       constraints=[lambda v: v != 7],
+                       list_constraints=[unique])
+        r.randomize(with_values={'listvar': [1, 2, 3]})
+        self.assertEqual(r.listvar, [1, 2, 3])
+        self.assertEqual(r.length, 3)
 
 
 class TrickyTempValues(basic.MultiSum):

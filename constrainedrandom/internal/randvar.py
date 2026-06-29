@@ -444,6 +444,69 @@ class RandVar:
                 result += [list(x) for x in product(self.domain, repeat=poss_len)]
             return result
 
+    def element_in_domain(self, value: Any) -> bool:
+        '''
+        Check whether a single value is in this variable's domain.
+        For a list variable, this checks one element.
+
+        :param value: The value to check.
+        :return: ``True`` if the value is in the domain, otherwise ``False``.
+        :raises TypeError: If the domain is of a bad type.
+        '''
+        if self.fn is not None:
+            # Just assume the value is OK, we have no way to know
+            return True
+        if self.bits is not None:
+            if not isinstance(value, int):
+                return False
+            return 0 <= value < (1 << self.bits)
+        if self.domain_is_range or self.domain_is_list_or_tuple:
+            return value in self.domain
+        if self.domain_is_dict:
+            # This is a distribution, validate against keys
+            for valid_val in self.domain.keys():
+                if isinstance(valid_val, range) and value in valid_val:
+                    return True
+                elif value == valid_val:
+                    return True
+            return False
+        raise TypeError(f"Couldn't check value {value} for variable '{self.name}' - no domain applied")
+
+    def value_in_domain(self, value: Any) -> bool:
+        '''
+        Check whether a concrete value is in this variable's domain.
+        For a list variable, the value must be a list of the right length
+        whose elements are all in the domain.
+
+        :param value: The value to check.
+        :return: ``True`` if the value is in the domain, otherwise ``False``.
+        :raises TypeError: If the domain is of a bad type.
+        '''
+        if not self.is_list():
+            return self.element_in_domain(value)
+        if not isinstance(value, (list, tuple)):
+            return False
+        if self.length is not None and len(value) != self.length:
+            return False
+        return all(self.element_in_domain(element) for element in value)
+
+    def satisfies_constraints(self, value: Any) -> bool:
+        '''
+        Check whether a concrete value satisfies this variable's own
+        constraints. For a list variable, scalar constraints apply to each
+        element and list constraints apply to the whole value.
+
+        :param value: The value to check.
+        :return: ``True`` if the value satisfies the constraints.
+        '''
+        if not self.is_list():
+            return all(con(value) for con in self.constraints)
+        if not isinstance(value, (list, tuple)):
+            return False
+        if not all(con(element) for con in self.constraints for element in value):
+            return False
+        return all(con(value) for con in self.list_constraints)
+
     def randomize_once(
         self,
         constraints: Iterable[utils.Constraint],
