@@ -828,6 +828,46 @@ We can mix temporary values with temporary constraints:
     r.randomize(with_constraints=[(is_even, ('op1',))], with_values={'op0': 42})
     print(r.op0, r.op1)
 
+It is possible to supply temporary values that are impossible given the problem definition.
+
+If a variable is assigned an impossible value based on its definition, we raise a ``ValueError``.
+
+For example:
+
+..  code-block:: python
+
+    r = RandObj()
+    r.add_rand_var('a', domain=range(10))
+    # This raises a ValueError - 'a' can't have the value 11
+    r.randomize(with_values={'a': 11})
+
+.. code-block:: python
+
+    r = RandObj()
+    r.add_rand_var('list_length', domain=range(5))
+    r.add_rand_var('rand_list', domain=range(10), rand_length='list_length')
+    # This raises a ValueError - 'rand_list' can't have length 6,
+    # because it forces 'list_length' to have a value outside its domain
+    r.randomize(with_values={'rand_list': [1, 2, 3, 4, 5, 6]})
+
+If an assigned value is valid as per a variable's definition, but violates constraints, a ``RandomizationError`` will be raised.
+
+..  code-block:: python
+
+    r = RandObj()
+    r.add_rand_var('a', domain=range(10), constraints=[lambda x : x != 5])
+    # This raises a RandomizationError - 5 is in the domain but fails the actual randomization
+    r.randomize(with_values={'a': 5})
+
+To disable checks on ``with_values`` entirely, pass ``check_with_values=False`` to ``randomize``.
+
+..  code-block:: python
+
+    r = RandObj()
+    r.add_rand_var('a', domain=range(10), constraints=[lambda x : x != 5])
+    # This now silently assigns 5 to 'a', despite it violating constraints
+    r.randomize(with_values={'a': 5}, check_with_values=False)
+
 
 Class-based constraints
 _______________________
