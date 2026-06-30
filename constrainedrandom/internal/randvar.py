@@ -444,7 +444,7 @@ class RandVar:
                 result += [list(x) for x in product(self.domain, repeat=poss_len)]
             return result
 
-    def element_in_domain(self, value: Any) -> bool:
+    def _element_in_domain(self, value: Any) -> bool:
         '''
         Check whether a single value is in this variable's domain.
         For a list variable, this checks one element.
@@ -483,12 +483,12 @@ class RandVar:
         :raises TypeError: If the domain is of a bad type.
         '''
         if not self.is_list():
-            return self.element_in_domain(value)
+            return self._element_in_domain(value)
         if not isinstance(value, (list, tuple)):
             return False
         if self.length is not None and len(value) != self.length:
             return False
-        return all(self.element_in_domain(element) for element in value)
+        return all(self._element_in_domain(element) for element in value)
 
     def satisfies_constraints(self, value: Any) -> bool:
         '''
