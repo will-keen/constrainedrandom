@@ -36,3 +36,8 @@ Each test case should also implement a `check_perf()` method, so that the expect
 ## Shared framework
 
 The benchmarks use a shared testing framework with the unit tests. However, they are kept separate so that users don't have to install `pyvsc` to ensure basic functionality of constrainedrandom.
+
+
+## Future work
+
+Add equivalent SystemVerilog testcases for benchmarking.
