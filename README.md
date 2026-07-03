@@ -46,10 +46,6 @@ Please feel free to contribute to the project, following these guidelines:
 - Pull requests should take care not to make performance worse except for cases which require bug fixes. Run `python -m tests` and `python -m benchmarks`.
 - Pull requests should update the documentation for any added/changed functionality.
 
-## `TODO`
-  - Add proper CI using tox or similar, testing Python versions 3.8..current
-  - Add equivalent SystemVerilog testcases for benchmarking.
-
 ## Contact the author(s)
 
 Will Keen - willkeencodes@gmail.com
