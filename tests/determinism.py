@@ -7,6 +7,7 @@ Test determinism between processes.
 
 import os
 import subprocess
+import sys
 import timeit
 import unittest
 
@@ -48,7 +49,7 @@ print(results)
 exit(0)
 '''
 
-        cmd = ['python3', '-c', program]
+        cmd = [sys.executable, '-c', program]
         # Capture the current env
         env = dict(os.environ)
         results = []
