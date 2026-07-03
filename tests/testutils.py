@@ -6,7 +6,7 @@
 import random
 import unittest
 from copy import deepcopy
-from time import process_time
+from time import perf_counter, process_time
 from typing import Any, Dict, List, Optional, Tuple
 
 from constrainedrandom import RandObj
@@ -61,20 +61,25 @@ class TestBase(unittest.TestCase):
         iterations: Number of times to run.
         '''
         results = []
-        time_taken = 0
+        cpu_time_taken = 0.0
+        wall_time_taken = 0.0
         for _ in range(iterations):
-            start_time = process_time()
+            cpu_start = process_time()
+            wall_start = perf_counter()
             if tmp_constraints is not None or tmp_values is not None:
                 randobj.randomize(with_constraints=tmp_constraints, with_values=tmp_values)
             else:
                 randobj.randomize()
-            end_time = process_time()
-            time_taken += end_time - start_time
+            cpu_time_taken += process_time() - cpu_start
+            wall_time_taken += perf_counter() - wall_start
             # Extract the results if dealing with RandObj
             # (This code is shared with benchmarking for vsc objects)
             if isinstance(randobj, RandObj):
                 results.append(randobj.get_results())
-        hz = iterations/time_taken
+        # Prefer process_time (CPU time); fall back to perf_counter when
+        # process_time lacks the resolution to register a duration (on Windows).
+        time_taken = cpu_time_taken if cpu_time_taken else wall_time_taken
+        hz = iterations / time_taken
         name_str = "" if name is None else " " + name
         print(f'{self.get_full_test_name()}:{name_str} took {time_taken:.4g}s for {iterations} iterations ({hz:.1f}Hz)')
         result_name = self.__class__.__name__ if name is None else name
