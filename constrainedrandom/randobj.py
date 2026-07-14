@@ -3,11 +3,31 @@
 
 import random
 from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 
 from . import utils
 from .internal.multivar import MultiVarProblem
 from .internal.randvar import RandVar
+
+
+@dataclass
+class _RandomizeState:
+    '''Working state for a single ``randomize()`` call, populated as it runs.'''
+    # Collect debug info during randomization
+    debug: bool = False
+    # True when temporary constraints alter the base problem
+    problem_changed: bool = False
+    # Concrete values to assign, by variable name
+    with_values: Dict[str, Any] = field(default_factory=dict)
+    # Temporary single-variable constraints, by variable name
+    tmp_single_var_constraints: Dict[str, List[utils.Constraint]] = field(default_factory=dict)
+    # Problem-level constraints for this call (base plus temporary)
+    constraints: List[utils.ConstraintAndVars] = field(default_factory=list)
+    # Constrained variables, plus the dependencies they pull in
+    constrained_var_names: Set[str] = field(default_factory=set)
+    # Randomized values so far, by variable name
+    result: Dict[str, Any] = field(default_factory=dict)
 
 
 class RandObj:
@@ -71,8 +91,14 @@ class RandObj:
         self._sparse_solve: bool = True
         self._sparsities: List[int] = [1, 10, 100, 1000]
         self._thorough_solve: bool = True
+        # _problem_changed: a constraint or variable was added, so the CSP problem must be rebuilt.
+        # _variables_changed: a variable was added, so the solve-order lists must be rebuilt.
+        # Adding a variable sets both. Adding only a constraint sets _problem_changed.
         self._problem_changed: bool = False
+        self._variables_changed: bool = False
         self._multi_var_problem: Optional[MultiVarProblem] = None
+        self._ordered_var_names: List[str] = []
+        self._ordered_length_names: List[str] = []
 
     def _get_random(self) -> random.Random:
         '''
@@ -168,6 +194,46 @@ class RandObj:
             if not rand_var.satisfies_constraints(value):
                 raise utils.RandomizationError(f"with_values gives '{name}' the value"
                     f" {value}, which does not satisfy its constraints.")
+
+    def _mark_constrained(self, name: str, constrained: Optional[Set[str]]=None) -> None:
+        '''
+        Mark a variable as constrained, and mark everything that must be
+        re-randomized along with it.
+
+        Marking a variable also marks:
+
+        - any lists whose length it controls,
+        - its length variable, if it is a random-length list.
+
+        This repeats for each newly marked variable. A variable can only
+        depend on variables added before it, so it always terminates.
+
+        :param name: Variable to mark as constrained.
+        :param constrained: Set of constrained variable names to update.
+            Defaults to this object's own set of constrained variables.
+        '''
+        if constrained is None:
+            constrained = self._constrained_vars
+        if name in constrained:
+            return
+        constrained.add(name)
+        # If this variable controls others' lengths, they are constrained too.
+        if name in self._rand_list_lengths:
+            for list_var in self._rand_list_lengths[name]:
+                self._mark_constrained(list_var, constrained)
+        # If this variable has a random length, its length variable is constrained.
+        rand_length = self._random_vars[name].rand_length
+        if rand_length is not None:
+            self._mark_constrained(rand_length, constrained)
+
+    def _add_single_var_constraint(self, constr: utils.Constraint, var: str) -> None:
+        '''
+        Add a single-variable constraint to ``var``.
+
+        :param constr: Constraint to add.
+        :param var: Name of the variable the constraint applies to.
+        '''
+        self._random_vars[var].add_constraint(constr)
 
     def set_solver_mode(
         self,
@@ -339,12 +405,12 @@ class RandObj:
             max_domain_size=self._max_domain_size,
             disable_naive_list_solver=disable_naive_list_solver,
         )
-        if rand_length is not None:
-            # If rand_length is constrained by other vars,
-            # so must the variable whose length it controls.
-            if rand_length in self._constrained_vars:
-                self._constrained_vars.add(name)
+        if rand_length is not None and rand_length in self._constrained_vars:
+            # The length variable is already constrained, so the list it
+            # controls must be re-randomized when solving too.
+            self._mark_constrained(name)
         self._problem_changed = True
+        self._variables_changed = True
         self.__dict__[name] = initial
 
     def add_constraint(self, constr: utils.Constraint, variables: Iterable[str]):
@@ -378,11 +444,11 @@ class RandObj:
         '''
         if isinstance(variables, str):
             # Single-variable constraint
-            self._random_vars[variables].add_constraint(constr)
+            self._add_single_var_constraint(constr, variables)
         elif isinstance(variables, list) or isinstance(variables, tuple):
             if len(variables) == 1:
                 # Single-variable constraint
-                self._random_vars[variables[0]].add_constraint(constr)
+                self._add_single_var_constraint(constr, variables[0])
             else:
                 # Multi-variable constraint
                 # Validate the variables before changing any state.
@@ -391,18 +457,7 @@ class RandObj:
                         raise KeyError(f"Variable '{var}' was not in the set of random variables!")
                 self._constraints.append((constr, variables))
                 for var in variables:
-                    self._constrained_vars.add(var)
-                    # If var constrains other variables' lengths,
-                    # those other variables must also be considered
-                    # as constrained.
-                    if var in self._rand_list_lengths:
-                        for list_var in self._rand_list_lengths[var]:
-                            self._constrained_vars.add(list_var)
-                    # If var has a random length, the variable defining
-                    # its length must also be considered as constrained.
-                    rand_length = self._random_vars[var].rand_length
-                    if rand_length is not None:
-                        self._constrained_vars.add(rand_length)
+                    self._mark_constrained(var)
         else:
             raise TypeError(f"'variables' must be of type str, tuple or list, got {variables}")
         self._problem_changed = True
@@ -444,15 +499,48 @@ class RandObj:
         '''
         self.pre_randomize()
 
-        result = {}
+        if self._variables_changed:
+            self._build_solve_order()
 
-        # Copy always-on constraints, ready to add any temporary ones
-        constraints: Set[utils.ConstraintAndVars] = list(self._constraints)
-        constrained_var_names: Set[str] = set(self._constrained_vars)
+        state = _RandomizeState(debug=debug)
+        self._apply_temporary_constraints(state, with_constraints)
+        self._apply_with_values(state, with_values, check_with_values)
 
-        # Process temporary constraints
+        self._resolve_list_lengths(state)
+        # Give every variable a base value. The solvers only revise the constrained ones.
+        self._randomize_once(state)
+        self._solve(state)
+
+        # Make the results available as member variables.
+        self.__dict__.update(state.result)
+
+        self.post_randomize()
+
+    def _build_solve_order(self) -> None:
+        '''
+        Rebuild the cached lists of variable names in solve order. They
+        depend only on which variables have been added, so they are rebuilt
+        when a variable is added rather than on every ``randomize()`` call.
+        '''
+        self._ordered_var_names = sorted(self._random_vars.keys())
+        self._ordered_length_names = sorted(self._rand_list_lengths.keys())
+        self._variables_changed = False
+
+    def _apply_temporary_constraints(
+        self,
+        state: _RandomizeState,
+        with_constraints: Optional[Iterable[utils.ConstraintAndVars]],
+    ) -> None:
+        '''
+        Populate ``state`` with the constraints for this call: the base
+        constraints plus any temporary ones in ``with_constraints``.
+
+        :raises TypeError: If a constraint's variables are not iterable.
+        :raises ValueError: If a constraint applies to no variables.
+        '''
+        constraints = list(self._constraints)
+        constrained_var_names = set(self._constrained_vars)
         tmp_single_var_constraints: Dict[str, List[utils.Constraint]] = defaultdict(list)
-        # Set to True if the problem is different from the base problem
         problem_changed = False
         if with_constraints is not None:
             for constr, var_names in with_constraints:
@@ -461,144 +549,177 @@ class RandObj:
                 if not len(var_names) > 0:
                     raise ValueError("Cannot add a constraint that applies to no variables")
                 if len(var_names) == 1:
-                    # Single-variable constraint
                     tmp_single_var_constraints[var_names[0]].append(constr)
                     problem_changed = True
                 else:
-                    # Multi-variable constraint
                     constraints.append((constr, var_names))
                     for var_name in var_names:
-                        constrained_var_names.add(var_name)
-                        # If var has a random length, the variable defining
-                        # its length must also be considered as constrained.
-                        rand_length = self._random_vars[var_name].rand_length
-                        if rand_length is not None:
-                            constrained_var_names.add(rand_length)
+                        self._mark_constrained(var_name, constrained_var_names)
                     problem_changed = True
-            # If a variable becomes constrained due to temporary multi-variable
-            # constraints, we must respect single var temporary constraints too.
+            # If a variable becomes constrained by a temporary multi-variable
+            # constraint, its temporary single-variable constraints apply too.
             for var_name, constrs in sorted(tmp_single_var_constraints.items()):
                 if var_name in constrained_var_names:
                     for constr in constrs:
                         constraints.append((constr, (var_name,)))
+        state.constraints = constraints
+        state.constrained_var_names = constrained_var_names
+        state.tmp_single_var_constraints = tmp_single_var_constraints
+        state.problem_changed = problem_changed
 
-        # Don't allow non-determinism when iterating over a set
-        constrained_var_names = sorted(constrained_var_names)
-        # Don't allow non-determinism when iterating over a dict
-        random_var_names = sorted(self._random_vars.keys())
-        list_length_names = sorted(self._rand_list_lengths.keys())
-
-        # Process concrete values - use these preferentially
+    def _apply_with_values(
+        self,
+        state: _RandomizeState,
+        with_values: Optional[Dict[str, Any]],
+        check_with_values: bool,
+    ) -> None:
+        '''
+        Copy ``with_values`` into ``state``, derive any list lengths implied
+        by concrete lists, and validate the values unless ``check_with_values``
+        is ``False``.
+        '''
         with_values = dict(with_values) if with_values else {}
         self._derive_lengths_from_concrete_lists(with_values)
         if check_with_values:
             self._check_with_values(with_values)
+        state.with_values = with_values
 
-        # Randomize list length vars first
-        for list_length_name in list_length_names:
-            if list_length_name in with_values:
-                length_result = with_values[list_length_name]
+    def _resolve_list_lengths(self, state: _RandomizeState) -> None:
+        '''
+        Randomize each list-length variable and set the resulting length on
+        the lists it controls.
+        '''
+        for length_name in self._ordered_length_names:
+            if length_name in state.with_values:
+                length_result = state.with_values[length_name]
             else:
-                tmp_constraints = tmp_single_var_constraints.get(list_length_name, [])
-                length_result = self._random_vars[list_length_name].randomize(tmp_constraints, debug)
-            result[list_length_name] = length_result
-            for dependent_var_name in self._rand_list_lengths[list_length_name]:
+                tmp_constraints = state.tmp_single_var_constraints.get(length_name, [])
+                length_result = self._random_vars[length_name].randomize(tmp_constraints, state.debug)
+            state.result[length_name] = length_result
+            for dependent_var_name in self._rand_list_lengths[length_name]:
                 self._random_vars[dependent_var_name].set_rand_length(length_result)
 
-        # Randomize all remaining variables once
-        for name in random_var_names:
+    def _randomize_once(self, state: _RandomizeState) -> None:
+        '''
+        Randomize every variable once, skipping list-length variables, which
+        are already resolved.
+        '''
+        for name in self._ordered_var_names:
             if name in self._rand_list_lengths:
                 continue
-            if name in with_values:
-                result[name] = with_values[name]
+            if name in state.with_values:
+                state.result[name] = state.with_values[name]
             else:
-                tmp_constraints = tmp_single_var_constraints.get(name, [])
-                result[name] = self._random_vars[name].randomize(tmp_constraints, debug)
+                tmp_constraints = state.tmp_single_var_constraints.get(name, [])
+                state.result[name] = self._random_vars[name].randomize(tmp_constraints, state.debug)
 
-        # If there are constraints, first try just to solve naively by randomizing the values.
-        # This will be faster than constructing a MultiVarProblem if the constraints turn out
-        # to be trivial. Only try this a few times so as not to waste time.
-        constraints_satisfied = len(constraints) == 0
-        if self._naive_solve:
-            attempts = 0
-            max = self._max_iterations
-            while not constraints_satisfied:
-                if attempts == max:
-                    break
-                if utils.check_constraints(constraints, result):
-                    # The current values satisfy the constraints, all is well
-                    constraints_satisfied = True
-                else:
-                    # Constraints not satisfied, re-randomize and try again
-                    # List length variables first
-                    for list_length_name in list_length_names:
-                        # If the length-defining variable is constrained,
-                        # re-randomize it and all its dependent vars.
-                        if list_length_name not in with_values and list_length_name in constrained_var_names:
-                            tmp_constraints = tmp_single_var_constraints.get(list_length_name, [])
-                            length_result = self._random_vars[list_length_name].randomize(tmp_constraints, debug)
-                            result[list_length_name] = length_result
-                            # Need to re-randomize all dependent vars as their
-                            # length has changed.
-                            for dependent_var_name in self._rand_list_lengths[list_length_name]:
-                                self._random_vars[dependent_var_name].set_rand_length(length_result)
-                                tmp_constraints = tmp_single_var_constraints.get(dependent_var_name, [])
-                                result[dependent_var_name] = self._random_vars[dependent_var_name].randomize(tmp_constraints, debug)
-                    for var in constrained_var_names:
-                        # Don't re-randomize if we've specified a concrete value
-                        if var in with_values:
-                            continue
-                        # Don't re-randomize list-length vars, those have been dealt with.
-                        if var in self._rand_list_lengths:
-                            continue
-                        # Don't re-randomize list vars which have been re-randomized once already.
-                        rand_length = self._random_vars[var].rand_length
-                        if rand_length is not None and rand_length in constrained_var_names:
-                            continue
-                        tmp_constraints = tmp_single_var_constraints.get(var, [])
-                        result[var] = self._random_vars[var].randomize(tmp_constraints, debug)
-                    attempts += 1
+    def _solve(self, state: _RandomizeState) -> None:
+        '''
+        Satisfy the constraints. Try the fast naive solver first, and fall
+        back to the CSP solver if it does not converge.
 
-        # If constraints are still not satisfied by this point, construct a multi-variable
-        # problem and solve them properly
-        if not constraints_satisfied:
-            if not (self._sparse_solve or self._thorough_solve):
-                raise utils.RandomizationError(
-                    'Naive solve failed, and sparse solve and thorough solve disabled.' \
-                    ' There is no way to solve the problem.'
-                )
-            if problem_changed or self._problem_changed or self._multi_var_problem is None:
-                # Add list length constraints here.
-                # By this point, we have failed to get a naive solution,
-                # so we need the list lengths as proper constraints.
-                constraints += self._get_list_length_constraints(constrained_var_names)
-                multi_var_problem = MultiVarProblem(
-                    random_getter=self._get_random,
-                    vars=[self._random_vars[var_name] for var_name in constrained_var_names],
-                    constraints=constraints,
-                    max_iterations=self._max_iterations,
-                    max_domain_size=self._max_domain_size,
-                )
-                # Only 'cache' the problem if it's the base problem with no extra constraints
-                if not problem_changed:
-                    self._multi_var_problem = multi_var_problem
-                    self._problem_changed = False
-            else:
-                multi_var_problem = self._multi_var_problem
-            result.update(
-                multi_var_problem.solve(
-                    sparse=self._sparse_solve,
-                    sparsities=self._sparsities,
-                    thorough=self._thorough_solve,
-                    with_values=with_values,
-                    debug=debug,
-                )
+        :raises RandomizationError: If no solution satisfying the constraints
+            is found, or if no constraint solver is enabled.
+        '''
+        if self._solve_naive(state):
+            return
+        self._solve_csp(state)
+
+    def _solve_naive(self, state: _RandomizeState) -> bool:
+        '''
+        Try to satisfy the constraints by re-randomizing constrained variables
+        a bounded number of times. Faster than building a ``MultiVarProblem``
+        when the constraints turn out to be easy.
+
+        :return: ``True`` if the constraints are satisfied, ``False`` if the
+            attempt budget is exhausted or naive solving is disabled.
+        '''
+        constraints = state.constraints
+        if len(constraints) == 0:
+            return True
+        if not self._naive_solve:
+            return False
+        result = state.result
+        with_values = state.with_values
+        tmp_single_var_constraints = state.tmp_single_var_constraints
+        constrained_var_names = state.constrained_var_names
+        debug = state.debug
+        attempts = 0
+        while attempts < self._max_iterations:
+            if utils.check_constraints(constraints, result):
+                return True
+            # Re-randomize the list-length variables first.
+            for length_name in self._ordered_length_names:
+                if length_name not in with_values and length_name in constrained_var_names:
+                    tmp_constraints = tmp_single_var_constraints.get(length_name, [])
+                    length_result = self._random_vars[length_name].randomize(tmp_constraints, debug)
+                    result[length_name] = length_result
+                    # The lists it controls change length, so re-randomize them.
+                    for dependent_var_name in self._rand_list_lengths[length_name]:
+                        self._random_vars[dependent_var_name].set_rand_length(length_result)
+                        tmp_constraints = tmp_single_var_constraints.get(dependent_var_name, [])
+                        result[dependent_var_name] = self._random_vars[dependent_var_name].randomize(tmp_constraints, debug)
+            for var in self._ordered_var_names:
+                if var not in constrained_var_names:
+                    continue
+                # Don't re-randomize a concrete value.
+                if var in with_values:
+                    continue
+                # List-length variables are dealt with above.
+                if var in self._rand_list_lengths:
+                    continue
+                # Don't re-randomize a list whose length was already re-randomized.
+                rand_length = self._random_vars[var].rand_length
+                if rand_length is not None and rand_length in constrained_var_names:
+                    continue
+                tmp_constraints = tmp_single_var_constraints.get(var, [])
+                result[var] = self._random_vars[var].randomize(tmp_constraints, debug)
+            attempts += 1
+        return False
+
+    def _solve_csp(self, state: _RandomizeState) -> None:
+        '''
+        Solve the remaining constraints with a ``MultiVarProblem``.
+
+        :raises RandomizationError: If no solver is enabled, or the constraints
+            cannot be satisfied.
+        '''
+        if not (self._sparse_solve or self._thorough_solve):
+            raise utils.RandomizationError(
+                'Naive solve failed, and sparse solve and thorough solve disabled.'
+                ' There is no way to solve the problem.'
             )
-
-        # Update this object such that the results of randomization are available as member variables
-        self.__dict__.update(result)
-
-        self.post_randomize()
+        result = state.result
+        constrained = state.constrained_var_names
+        if state.problem_changed or self._problem_changed or self._multi_var_problem is None:
+            # Naive solve failed, so the list lengths must become constraints.
+            csp_constraints = state.constraints + self._get_list_length_constraints(constrained)
+            multi_var_problem = MultiVarProblem(
+                random_getter=self._get_random,
+                vars=[self._random_vars[var_name] for var_name in self._ordered_var_names
+                      if var_name in constrained],
+                constraints=csp_constraints,
+                max_iterations=self._max_iterations,
+                max_domain_size=self._max_domain_size,
+            )
+            # Cache only the base problem, i.e. with no temporary constraints.
+            if not state.problem_changed:
+                self._multi_var_problem = multi_var_problem
+                self._problem_changed = False
+        else:
+            multi_var_problem = self._multi_var_problem
+        solution = multi_var_problem.solve(
+            sparse=self._sparse_solve,
+            sparsities=self._sparsities,
+            thorough=self._thorough_solve,
+            with_values=state.with_values,
+            debug=state.debug,
+        )
+        if solution is None:
+            raise utils.RandomizationError(
+                "Could not solve constraint satisfaction problem"
+            )
+        result.update(solution)
 
     def post_randomize(self) -> None:
         '''
