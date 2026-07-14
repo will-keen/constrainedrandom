@@ -17,7 +17,7 @@ class _RandomizeState:
     # Collect debug info during randomization
     debug: bool = False
     # True when temporary constraints alter the base problem
-    problem_changed: bool = False
+    has_temp_constraints: bool = False
     # Concrete values to assign, by variable name
     with_values: Dict[str, Any] = field(default_factory=dict)
     # Temporary single-variable constraints, by variable name
@@ -541,7 +541,7 @@ class RandObj:
         constraints = list(self._constraints)
         constrained_var_names = set(self._constrained_vars)
         tmp_single_var_constraints: Dict[str, List[utils.Constraint]] = defaultdict(list)
-        problem_changed = False
+        has_temp_constraints = False
         if with_constraints is not None:
             for constr, var_names in with_constraints:
                 if not isinstance(var_names, Iterable):
@@ -550,12 +550,12 @@ class RandObj:
                     raise ValueError("Cannot add a constraint that applies to no variables")
                 if len(var_names) == 1:
                     tmp_single_var_constraints[var_names[0]].append(constr)
-                    problem_changed = True
+                    has_temp_constraints = True
                 else:
                     constraints.append((constr, var_names))
                     for var_name in var_names:
                         self._mark_constrained(var_name, constrained_var_names)
-                    problem_changed = True
+                    has_temp_constraints = True
             # If a variable becomes constrained by a temporary multi-variable
             # constraint, its temporary single-variable constraints apply too.
             for var_name, constrs in sorted(tmp_single_var_constraints.items()):
@@ -565,7 +565,7 @@ class RandObj:
         state.constraints = constraints
         state.constrained_var_names = constrained_var_names
         state.tmp_single_var_constraints = tmp_single_var_constraints
-        state.problem_changed = problem_changed
+        state.has_temp_constraints = has_temp_constraints
 
     def _apply_with_values(
         self,
@@ -691,7 +691,7 @@ class RandObj:
             )
         result = state.result
         constrained = state.constrained_var_names
-        if state.problem_changed or self._problem_changed or self._multi_var_problem is None:
+        if state.has_temp_constraints or self._problem_changed or self._multi_var_problem is None:
             # Naive solve failed, so the list lengths must become constraints.
             csp_constraints = state.constraints + self._get_list_length_constraints(constrained)
             multi_var_problem = MultiVarProblem(
@@ -703,7 +703,7 @@ class RandObj:
                 max_domain_size=self._max_domain_size,
             )
             # Cache only the base problem, i.e. with no temporary constraints.
-            if not state.problem_changed:
+            if not state.has_temp_constraints:
                 self._multi_var_problem = multi_var_problem
                 self._problem_changed = False
         else:
