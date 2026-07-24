@@ -98,6 +98,8 @@ class RandObjTestBase(TestBase):
     EXPECTED_ERROR_INIT = None
     # Expected exception when calling `randomize_and_check_result`.
     EXPECTED_ERROR_RAND = None
+    # Regex the message of `EXPECTED_ERROR_RAND` must match, if not `None`.
+    EXPECTED_ERROR_RAND_MSG = None
 
     def get_randobj(self, *args) -> RandObj:
         '''
@@ -133,6 +135,16 @@ class RandObjTestBase(TestBase):
         '''
         pass
 
+    def assert_rand_error(self, randomize) -> None:
+        '''
+        Assert that calling ``randomize`` raises ``EXPECTED_ERROR_RAND``, with a
+        message matching ``EXPECTED_ERROR_RAND_MSG`` if one is given.
+        '''
+        if self.EXPECTED_ERROR_RAND_MSG is None:
+            self.assertRaises(self.EXPECTED_ERROR_RAND, randomize)
+        else:
+            self.assertRaisesRegex(self.EXPECTED_ERROR_RAND, self.EXPECTED_ERROR_RAND_MSG, randomize)
+
     def randomize_and_check_result(
         self,
         randobj: RandObj,
@@ -150,7 +162,7 @@ class RandObjTestBase(TestBase):
         results.
         '''
         if self.EXPECTED_ERROR_RAND is not None:
-            self.assertRaises(self.EXPECTED_ERROR_RAND, randobj.randomize)
+            self.assert_rand_error(randobj.randomize)
         else:
             results, _perf = self.randomize_and_time(randobj, self.iterations)
             assertListOfDictsEqual(self, expected_results, results, "Non-determinism detected, results were not equal")
@@ -218,7 +230,7 @@ class RandObjTestBase(TestBase):
             # Take a copy of the randobj for use later
             randobj_copy = deepcopy(randobj)
             if self.EXPECTED_ERROR_RAND is not None:
-                self.assertRaises(self.EXPECTED_ERROR_RAND, randobj.randomize)
+                self.assert_rand_error(randobj.randomize)
             else:
                 results, _perf = self.randomize_and_time(randobj, self.iterations)
                 self.check(results)
@@ -284,7 +296,7 @@ class RandObjTestBase(TestBase):
         else:
             randobj1 = self.get_randobj(r1)
             if self.EXPECTED_ERROR_RAND is not None:
-                self.assertRaises(self.EXPECTED_ERROR_RAND, randobj1.randomize)
+                self.assert_rand_error(randobj1.randomize)
             else:
                 results1, _perf = self.randomize_and_time(randobj1, self.iterations)
                 self.check(results1)
@@ -358,7 +370,7 @@ class RandObjTestBase(TestBase):
             # So, just test it can randomize.
             randobj0_global_copy = deepcopy(randobj0_global)
             if self.EXPECTED_ERROR_RAND is not None:
-                self.assertRaises(self.EXPECTED_ERROR_RAND, randobj0_global_copy.randomize)
+                self.assert_rand_error(randobj0_global_copy.randomize)
             else:
                 # Don't check results. Checks may fail due to the interaction
                 # between deepcopy and global random. E.g. if we check that temp

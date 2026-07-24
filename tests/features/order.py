@@ -71,3 +71,44 @@ class OrderIgnoredByNaive(unittest.TestCase):
         testutils.assertListOfDictsEqual(
             self, self.results(0, 1, True), self.results(1, 0, True),
             "Ordering hints changed naive randomization results")
+
+
+class DerivedOrderIgnored(unittest.TestCase):
+    '''
+    Ordering hints on a derived variable, or on a list whose length it sets,
+    must not affect results under either solver. Derived variables are computed
+    in dependency order and never enter the constraint solver, so their
+    ``order`` has nothing to act on.
+
+    This compares two separate ``RandObj`` instances, so it cannot use
+    ``RandObjTestBase``, which tests a single instance.
+    '''
+
+    def results(self, naive, hints):
+        r = RandObj(Random(0))
+        r.set_solver_mode(naive=naive)
+        # Hints, when given, put the derived variable and its list before their inputs.
+        r.add_rand_var('a', domain=range(1, 5), order=5 if hints else None)
+        r.add_rand_var('d', fn=lambda a: a + 1, rand_var_args=('a',), order=0 if hints else None)
+        r.add_rand_var('lst', domain=range(10), rand_length='d', order=1 if hints else None)
+        r.add_rand_var('c', fn=lambda d: d + 1, rand_var_args=('d',), order=0 if hints else None)
+        # A constraint on other variables so that solving happens, but never
+        # involves the derived variables, so the problem is legal for the CSP.
+        r.add_rand_var('x', domain=range(1, 5))
+        r.add_rand_var('y', domain=range(1, 5))
+        r.add_constraint(lambda x, y: x + y == 5, ('x', 'y'))
+        out = []
+        for _ in range(100):
+            r.randomize()
+            out.append(r.get_results())
+        return out
+
+    def test_naive(self):
+        testutils.assertListOfDictsEqual(
+            self, self.results(True, False), self.results(True, True),
+            "Ordering hints on derived variables changed naive results")
+
+    def test_csp(self):
+        testutils.assertListOfDictsEqual(
+            self, self.results(False, False), self.results(False, True),
+            "Ordering hints on derived variables changed constraint solver results")

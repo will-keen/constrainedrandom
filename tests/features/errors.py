@@ -117,6 +117,62 @@ class NegativeRandLength(testutils.RandObjTestBase):
         return randobj
 
 
+class DerivedNoFn(testutils.RandObjTestBase):
+    '''
+    Test that a derived variable requires fn.
+    '''
+
+    EXPECTED_ERROR_INIT = ValueError
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.add_rand_var('a', domain=range(10))
+        randobj.add_rand_var('b', rand_var_args=('a',))
+        return randobj
+
+
+class DerivedUnknownArg(testutils.RandObjTestBase):
+    '''
+    Test that rand_var_args must name existing variables.
+    '''
+
+    EXPECTED_ERROR_INIT = ValueError
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.add_rand_var('b', fn=lambda z: z, rand_var_args=('nonexistent',))
+        return randobj
+
+
+class DerivedWithLength(testutils.RandObjTestBase):
+    '''
+    Test that a derived variable is rejected as a fixed-length list.
+    '''
+
+    EXPECTED_ERROR_INIT = RuntimeError
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.add_rand_var('a', domain=range(10))
+        randobj.add_rand_var('b', fn=lambda a: a + 1, rand_var_args=('a',), length=3)
+        return randobj
+
+
+class DerivedWithRandLength(testutils.RandObjTestBase):
+    '''
+    Test that a derived variable is rejected as a random-length list.
+    '''
+
+    EXPECTED_ERROR_INIT = RuntimeError
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.add_rand_var('n', domain=range(1, 4))
+        randobj.add_rand_var('a', domain=range(10))
+        randobj.add_rand_var('b', fn=lambda a: a + 1, rand_var_args=('a',), rand_length='n')
+        return randobj
+
+
 class RandLengthListAsLength(testutils.RandObjTestBase):
     '''
     Test that a random-length list is rejected as the
@@ -173,6 +229,47 @@ class EmptyListDependent(testutils.RandObjTestBase):
         def in_list_c(x, y):
             return x in y
         randobj.add_constraint(in_list_c, ('list_member', 'list'))
+        return randobj
+
+
+class DerivedLengthCSP(testutils.RandObjTestBase):
+    '''
+    Test that a derived variable used as a list length is rejected when the
+    problem reaches the constraint solver, which cannot revise a derived length.
+    The naive solver is disabled to force the constraint solver.
+    '''
+
+    EXPECTED_ERROR_RAND = RandomizationError
+    EXPECTED_ERROR_RAND_MSG = "constraint solver for a derived variable"
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.set_solver_mode(naive=False)
+        randobj.add_rand_var('a', domain=range(10))
+        randobj.add_rand_var('l', fn=lambda a: a + 1, rand_var_args=('a',))
+        randobj.add_rand_var('list', domain=range(2), rand_length='l')
+        randobj.add_rand_var('x', domain=range(20))
+        randobj.add_constraint(lambda x, l: x > l, ('x', 'l'))
+        return randobj
+
+
+class DerivedConstraintUnsatisfiableCSP(testutils.RandObjTestBase):
+    '''
+    A constraint on a derived variable that no input can satisfy, with the
+    naive solver disabled. The constraint solver recomputes the derived
+    variable from its solution and checks the constraint, so ``randomize``
+    must raise rather than return a value that violates it.
+    '''
+
+    EXPECTED_ERROR_RAND = RandomizationError
+    EXPECTED_ERROR_RAND_MSG = "names a derived variable"
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.set_solver_mode(naive=False)
+        randobj.add_rand_var('a', domain=range(10))
+        randobj.add_rand_var('b', fn=lambda a: a + 1, rand_var_args=('a',))
+        randobj.add_constraint(lambda b: b > 100, ('b',))
         return randobj
 
 

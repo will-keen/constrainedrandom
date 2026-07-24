@@ -421,6 +421,75 @@ However, the following is *not* OK because the ``rand_mul_by_4`` function is not
     r.randomize()
 
 
+Derived variables
+_________________
+
+Sometimes a variable's value is best expressed as a function of other random variables.
+Such a variable is called a *derived variable*.
+It is declared with ``fn`` and the ``rand_var_args`` argument, which names the variables whose values are passed to ``fn``.
+The library ensures those variables are randomized before the derived variable is computed.
+
+..  code-block:: python
+
+    import random
+
+    from constrainedrandom import RandObj
+
+    random.seed(0)
+    r = RandObj()
+    r.add_rand_var('a', domain=range(10))
+    # 'b' is derived from 'a': it is always a + 1.
+    r.add_rand_var('b', fn=lambda a : a + 1, rand_var_args=('a',))
+    r.randomize()
+    # e.g. {'a': 6, 'b': 7}
+    print(r.get_results())
+
+The values named in ``rand_var_args`` are passed to ``fn`` positionally, in the order given. A derived variable may depend on other derived variables, forming a chain.
+
+``rand_var_args`` may be combined with ``args``. The static ``args`` are passed first, followed by the values of ``rand_var_args``, i.e. ``fn(*args, *rand_var_arg_values)``:
+
+..  code-block:: python
+
+    # 'd' is 10 * a.
+    r.add_rand_var('d', fn=lambda scale, a : scale * a, args=(10,), rand_var_args=('a',))
+
+A derived variable's ``fn`` may itself use randomness:
+
+..  code-block:: python
+
+    from random import Random
+
+    rand = Random(0)
+    r = RandObj(rand)
+    r.add_rand_var('a', domain=range(1, 10))
+    # 'b' is a random value less than 'a'.
+    r.add_rand_var('b', fn=lambda a : rand.randrange(a), rand_var_args=('a',))
+    r.randomize()
+
+.. note::
+    As with any ``fn``, when using :ref:`Object-based seeding` the function must draw randomness from the same instance of ``Random`` used to seed the ``RandObj``.
+    Otherwise results will not be repeatable.
+
+Constraints may be applied to derived variables.
+Since a derived variable is computed from its ``rand_var_args`` rather than randomized directly, such a constraint is satisfied by re-randomizing them.
+As with constraints on ``fn`` variables, satisfying them is not guaranteed.
+The naive solver re-randomizes the inputs until the constraint holds or its attempt limit is reached, so an impossible constraint fails rather than looping forever.
+If the constraint solver runs instead (see `Setting which solvers to use`_), it does not re-randomize the inputs, so randomization can fail whenever its first solution violates the constraint.
+
+A derived variable may also be used as a ``rand_length``.
+This requires the naive solver to satisfy the constraints. The constraint solver cannot vary a derived length.
+
+..  code-block:: python
+
+    random.seed(0)
+    r = RandObj()
+    r.add_rand_var('a', domain=range(10))
+    r.add_rand_var('b', fn=lambda a : a + 1, rand_var_args=('a',))
+    # Constrains 'a' indirectly: 'a' is re-randomized until b > 5.
+    r.add_constraint(lambda b : b > 5, ('b',))
+    r.randomize()
+
+
 Random list variables
 _____________________
 
