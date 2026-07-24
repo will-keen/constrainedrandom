@@ -303,6 +303,15 @@ class RandVar:
         '''
         return self.length is not None or self.rand_length is not None
 
+    def has_rand_length(self) -> bool:
+        '''
+        Returns ``True`` if this is a list whose length is set by another
+        random variable.
+
+        :return: ``True`` if another variable sets this list's length, otherwise ``False``.
+        '''
+        return self.rand_length is not None
+
     def set_rand_length(self, length: int) -> None:
         '''
         Function to set the random length.
