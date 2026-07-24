@@ -506,7 +506,7 @@ class RandObj:
         self._apply_temporary_constraints(state, with_constraints)
         self._apply_with_values(state, with_values, check_with_values)
 
-        self._resolve_list_lengths(state)
+        self._randomize_and_set_list_lengths(state)
         # Give every variable a base value. The solvers only revise the constrained ones.
         self._randomize_once(state)
         self._solve(state)
@@ -584,7 +584,7 @@ class RandObj:
             self._check_with_values(with_values)
         state.with_values = with_values
 
-    def _resolve_list_lengths(self, state: _RandomizeState) -> None:
+    def _randomize_and_set_list_lengths(self, state: _RandomizeState) -> None:
         '''
         Randomize each list-length variable and set the resulting length on
         the lists it controls.
