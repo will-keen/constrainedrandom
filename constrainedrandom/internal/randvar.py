@@ -3,7 +3,7 @@
 
 import constraint
 from itertools import product
-from typing import Any, Callable, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 import random
 
 from .. import utils
@@ -54,11 +54,14 @@ class RandVar:
         Mutually exclusive with ``domain`` and ``bits``.
     :param args: Arguments to pass to the function specified in ``fn``.
         If ``fn`` is not used, ``args`` must not be used.
+    :param rand_var_args: Names of variables whose values are passed to ``fn`` after
+        ``args``, making this a derived variable. Requires ``fn``.
     :param constraints: List or tuple of constraints that apply to this random variable.
         Each of these apply only to the individual values in the list, if a length is
         specified.
-    :param constraints: List or tuple of constraints that apply to this random variable.
-        Each of these apply across the values in the list, if a length is specified.
+    :param list_constraints: List or tuple of constraints on the list as a whole. Each is
+        called with the entire list, unlike ``constraints``, which are called with one
+        element. Ignored unless ``length`` or ``rand_length`` is given.
     :param length: Specify a length >= 0 to turn this variable into a list of random
         values. A value >= 0 means a list of that length. A zero-length list is just
         an empty list. A value of ``None`` (default) means a scalar value.
@@ -84,6 +87,7 @@ class RandVar:
         bits: Optional[int]=None,
         fn: Optional[Callable]=None,
         args: Optional[tuple]=None,
+        rand_var_args: Optional[Iterable[str]]=None,
         constraints: Optional[Iterable[utils.Constraint]]=None,
         list_constraints: Optional[Iterable[utils.Constraint]]=None,
         length: Optional[int]=None,
@@ -141,6 +145,10 @@ class RandVar:
                 self.domain_is_range = True
         self.fn = fn
         self.args = args
+        # fn is called with any static args followed by the values of the
+        # variables named in rand_var_args.
+        self.rand_var_args = list(rand_var_args) if rand_var_args is not None else None
+        self._rand_var_arg_values = None
         self.constraints = constraints if constraints is not None else []
         if not (isinstance(self.constraints, list) or isinstance(self.constraints, tuple)):
             raise TypeError("constraints was bad type, should be list or tuple")
@@ -173,6 +181,9 @@ class RandVar:
         '''
         # self.fn, self.bits and self.domain should already be guaranteed
         # to be mutually exclusive - only one should be non-None.
+        if self.is_derived():
+            # A derived variable also has fn set, so check this first.
+            return self._randomize_derived
         if self.fn is not None:
             return self._randomize_user_fn
         if self.bits is not None:
@@ -198,6 +209,20 @@ class RandVar:
             return self.fn(*self.args)
         else:
             return self.fn()
+
+    def _randomize_derived(self) -> Any:
+        '''
+        Compute a derived variable's value by calling ``fn`` with any static
+        ``args`` followed by the values of ``rand_var_args``. Those
+        values must have been provided via ``set_rand_var_args`` first.
+
+        :raises RuntimeError: If ``set_rand_var_args`` has not been called first.
+        '''
+        if self._rand_var_arg_values is None:
+            raise RuntimeError(f"Derived variable '{self.name}' was randomized" \
+                " before set_rand_var_args was called.")
+        args = self.args if self.args is not None else ()
+        return self.fn(*args, *self._rand_var_arg_values)
 
     def _randomize_bits(self) -> int:
         return self._get_random().getrandbits(self.bits)
@@ -311,6 +336,33 @@ class RandVar:
         :return: ``True`` if another variable sets this list's length, otherwise ``False``.
         '''
         return self.rand_length is not None
+
+    def is_derived(self) -> bool:
+        '''
+        Returns ``True`` if this variable's value is derived from
+        other variables.
+
+        :return: ``True`` if this is a derived variable, otherwise ``False``.
+        '''
+        return self.rand_var_args is not None
+
+    def set_rand_var_args(self, values: Dict[str, Any]) -> None:
+        '''
+        Provide the values of the variables this derived variable
+        depends on, prior to randomizing it.
+
+        Should only be used when this ``RandVar`` instance is a
+        derived variable.
+
+        :param values: Dictionary mapping each name in ``rand_var_args``
+            to its value.
+        :raises RuntimeError: If this variable is not a derived variable.
+        '''
+        if not self.is_derived():
+            raise RuntimeError("RandVar was not marked as derived," \
+                " but set_rand_var_args was called.")
+        # Store the values in rand_var_args order, ready to pass to fn.
+        self._rand_var_arg_values = tuple(values[name] for name in self.rand_var_args)
 
     def set_rand_length(self, length: int) -> None:
         '''
@@ -795,6 +847,8 @@ class RandVar:
         # Determine base domain
         if self.fn is not None:
             s += f", fn={self.fn}"
+            if self.rand_var_args is not None:
+                s += f", rand_var_args={tuple(self.rand_var_args)}"
         elif self.bits is not None:
             s += f", bits={self.bits}"
         elif self.domain is not None:

@@ -24,7 +24,7 @@ class _RandomizeState:
     tmp_single_var_constraints: Dict[str, List[utils.Constraint]] = field(default_factory=dict)
     # Problem-level constraints for this call (base plus temporary)
     constraints: List[utils.ConstraintAndVars] = field(default_factory=list)
-    # Constrained variables, plus the dependencies they pull in
+    # Variables to re-randomize while solving: constrained variables, plus everything marked with them
     constrained_var_names: Set[str] = field(default_factory=set)
     # Randomized values so far, by variable name
     result: Dict[str, Any] = field(default_factory=dict)
@@ -79,10 +79,18 @@ class RandObj:
     ) -> None:
         # Prefix 'internal use' variables with '_', as randomized results are populated to the class
         self._random: Optional[random.Random] = _random
+        # Insertion order is dependency order: a variable's rand_length and
+        # rand_var_args must already exist when it is added, so iterating this
+        # dict visits every variable after the ones it depends on.
         self._random_vars: Dict[str, RandVar] = {}
         # This maps the names of variables used as random lengths (keys) to a list of the variable
         # names that they set the length for (values).
         self._rand_list_lengths: Dict[str, List[str]]= defaultdict(list)
+        # Names of variables whose value is derived from other variables.
+        self._derived_vars: Set[str] = set()
+        # This maps each variable name (keys) to the derived variables that
+        # name it in rand_var_args (values).
+        self._derived_dependents: Dict[str, List[str]] = defaultdict(list)
         self._constraints: List[utils.ConstraintAndVars] = []
         self._constrained_vars : Set[str] = set()
         self._max_iterations: int = max_iterations
@@ -91,13 +99,9 @@ class RandObj:
         self._sparse_solve: bool = True
         self._sparsities: List[int] = [1, 10, 100, 1000]
         self._thorough_solve: bool = True
-        # _problem_changed: a constraint or variable was added, so the CSP problem must be rebuilt.
-        # _variables_changed: a variable was added, so the solve-order lists must be rebuilt.
-        # Adding a variable sets both. Adding only a constraint sets _problem_changed.
+        # A constraint or variable was added, so the CSP problem must be rebuilt.
         self._problem_changed: bool = False
-        self._variables_changed: bool = False
         self._multi_var_problem: Optional[MultiVarProblem] = None
-        self._ordered_var_names: List[str] = []
 
     def _get_random(self) -> random.Random:
         '''
@@ -202,7 +206,10 @@ class RandObj:
         Marking a variable also marks:
 
         - any lists whose length it controls,
-        - its length variable, if it is a random-length list.
+        - its length variable, if it is a random-length list,
+        - its ``rand_var_args``, if it is derived,
+        - any derived variable that names it in ``rand_var_args``, but not
+          that variable's other inputs, which have no reason to change.
 
         This repeats for each newly marked variable. It terminates because a
         variable that is already marked is skipped, so each is visited at most once.
@@ -224,15 +231,51 @@ class RandObj:
         rand_length = self._random_vars[name].rand_length
         if rand_length is not None:
             self._mark_constrained(rand_length, constrained)
+        # If this variable is derived, its rand_var_args are constrained.
+        if name in self._derived_vars:
+            for dep in self._random_vars[name].rand_var_args:
+                self._mark_constrained(dep, constrained)
+        # Derived variables that name this one may change value, so they are
+        # constrained too.
+        for dependent in self._derived_dependents.get(name, ()):
+            self._mark_derived_constrained(dependent, constrained)
+
+    def _mark_derived_constrained(self, name: str, constrained: Optional[Set[str]]=None) -> None:
+        '''
+        Mark a derived variable as constrained, so it is recomputed while solving.
+        Also mark the lists whose length it sets and the derived variables that name it.
+        Do not mark its inputs. Re-randomizing an unconstrained input cannot satisfy a constraint.
+
+        :param name: Derived variable to mark as constrained.
+        :param constrained: Set of constrained variable names to update.
+            Defaults to this object's own set of constrained variables.
+        '''
+        if constrained is None:
+            constrained = self._constrained_vars
+        if name in constrained:
+            return
+        constrained.add(name)
+        for list_var in self._rand_list_lengths.get(name, ()):
+            self._mark_constrained(list_var, constrained)
+        for dependent in self._derived_dependents.get(name, ()):
+            self._mark_derived_constrained(dependent, constrained)
 
     def _add_single_var_constraint(self, constr: utils.Constraint, var: str) -> None:
         '''
         Add a single-variable constraint to ``var``.
 
+        For a derived variable, the constraint is registered at the problem
+        level and its ``rand_var_args`` are marked constrained, so
+        re-randomizing them searches for a value that satisfies it.
+
         :param constr: Constraint to add.
         :param var: Name of the variable the constraint applies to.
         '''
-        self._random_vars[var].add_constraint(constr)
+        if var in self._derived_vars:
+            self._constraints.append((constr, (var,)))
+            self._mark_constrained(var)
+        else:
+            self._random_vars[var].add_constraint(constr)
 
     def set_solver_mode(
         self,
@@ -290,6 +333,7 @@ class RandObj:
         bits: Optional[int]=None,
         fn: Optional[Callable]=None,
         args: Optional[tuple]=None,
+        rand_var_args: Optional[Iterable[str]]=None,
         constraints: Optional[Iterable[utils.Constraint]]=None,
         list_constraints: Optional[Iterable[utils.Constraint]]=None,
         length: Optional[int]=None,
@@ -315,18 +359,26 @@ class RandObj:
             Mutually exclusive with ``domain`` and ``bits``.
         :param args: Arguments to pass to the function specified in ``fn``.
             If ``fn`` is not used, ``args`` must not be used.
+        :param rand_var_args: Names of existing variables whose values are passed to
+            ``fn`` to compute this variable's value, making this a *derived* variable.
+            The values are passed positionally after any ``args``, i.e.
+            ``fn(*args, *rand_var_arg_values)``. Each name must already have been added
+            as a random variable. Requires ``fn``. ``fn`` may itself use randomness.
         :param constraints: List or tuple of constraints that apply to this random variable.
             Each of these apply only to the individual values in the list, if a length is
-            specified.
-        :param constraints: List or tuple of constraints that apply to this random variable.
-            Each of these apply across the values in the list, if a length is specified.
+            specified. For a derived variable they are satisfied by re-randomizing its
+            ``rand_var_args``.
+        :param list_constraints: List or tuple of constraints on the list as a whole. Each is
+            called with the entire list, unlike ``constraints``, which are called with one
+            element. Ignored unless ``length`` or ``rand_length`` is given.
         :param length: Specify a length >= 0 to turn this variable into a list of random
             values. A value >= 0 means a list of that length. A zero-length list is just
             an empty list. A value of ``None`` (default) means a scalar value.
             Mutually exclusive with ``rand_length``.
         :param rand_length: Specify the name of a random variable that defines the length
             of this variable. The variable must have already been added to this instance.
-            Mutually exclusive with ``length``.
+            Mutually exclusive with ``length``. A derived length requires the naive
+            solver. See :func:`set_solver_mode`.
         :param order: The solution order for this variable with respect to other variables.
         :param initial: Initial value to assign to the variable prior to randomizing.
         :param disable_naive_list_solver: Attempt to use a faster algorithm for solving
@@ -372,6 +424,11 @@ class RandObj:
             raise RuntimeError("'length' and 'rand_length' are mutually-exclusive, but both were specified")
         if length is not None and length < 0:
             raise ValueError("length was negative, must be zero or positive.")
+        # A derived variable is a scalar computed from its inputs, so a list
+        # of them has no defined meaning.
+        if rand_var_args is not None and (length is not None or rand_length is not None):
+            raise RuntimeError("'rand_var_args' is mutually-exclusive with 'length' and"
+                " 'rand_length', but both were specified.")
         if rand_length is not None:
             # Indicates the length of the RandVar depends on another random variable.
             if rand_length not in self._random_vars:
@@ -387,6 +444,19 @@ class RandObj:
             # Ignore the user if they're wrong rather than raising an error.
             if order is None or order <= self._random_vars[rand_length].order:
                 order = self._random_vars[rand_length].order + 1
+        if rand_var_args is not None:
+            # A derived variable's value is computed by fn from the values
+            # of the variables it depends on.
+            if fn is None:
+                raise ValueError(f"derived variable '{name}' requires 'fn' to compute its value.")
+            rand_var_args = tuple(rand_var_args)
+            for dep in rand_var_args:
+                # Dependencies must already exist. This forces variables to be
+                # added before those that depend on them, which makes circular
+                # dependencies impossible to construct.
+                if dep not in self._random_vars:
+                    raise ValueError(f"rand_var_args for '{name}' names '{dep}'," \
+                        " which is not an existing random variable.")
         order = 0 if order is None else order
         self._random_vars[name] = RandVar(
             name=name,
@@ -396,7 +466,8 @@ class RandObj:
             bits=bits,
             fn=fn,
             args=args,
-            constraints=constraints,
+            rand_var_args=rand_var_args,
+            constraints=(None if rand_var_args is not None else constraints),
             list_constraints=list_constraints,
             length=length,
             rand_length=rand_length,
@@ -408,8 +479,18 @@ class RandObj:
             # The length variable is already constrained, so the list it
             # controls must be re-randomized when solving too.
             self._mark_constrained(name)
+        if rand_var_args is not None:
+            self._derived_vars.add(name)
+            for dep in rand_var_args:
+                self._derived_dependents[dep].append(name)
+            # An input is already constrained, so this variable's value may
+            # change when solving, as for a list whose length is constrained.
+            if any(dep in self._constrained_vars for dep in rand_var_args):
+                self._mark_derived_constrained(name)
+            if constraints is not None:
+                for con in constraints:
+                    self._add_single_var_constraint(con, name)
         self._problem_changed = True
-        self._variables_changed = True
         self.__dict__[name] = initial
 
     def add_constraint(self, constr: utils.Constraint, variables: Iterable[str]):
@@ -498,15 +579,13 @@ class RandObj:
         '''
         self.pre_randomize()
 
-        if self._variables_changed:
-            self._build_solve_order()
 
         state = _RandomizeState(debug=debug)
         self._apply_temporary_constraints(state, with_constraints)
         self._apply_with_values(state, with_values, check_with_values)
 
         # Give every variable a value that satisfies its own constraints...
-        self._randomize_variables(self._ordered_var_names, state)
+        self._randomize_variables(self._random_vars, state)
         # ...then revise the constrained ones until the multi-variable constraints hold.
         self._solve(state)
 
@@ -514,22 +593,6 @@ class RandObj:
         self.__dict__.update(state.result)
 
         self.post_randomize()
-
-    def _build_solve_order(self) -> None:
-        '''
-        Rebuild the cached list of variable names in dependency order, so each
-        variable comes after the ones it depends on. The order only
-        changes when a variable is added.
-        '''
-        others = []
-        rand_length_lists = []
-        for name in sorted(self._random_vars.keys()):
-            if self._random_vars[name].has_rand_length():
-                rand_length_lists.append(name)
-            else:
-                others.append(name)
-        self._ordered_var_names = others + rand_length_lists
-        self._variables_changed = False
 
     def _apply_temporary_constraints(
         self,
@@ -553,7 +616,9 @@ class RandObj:
                     raise TypeError("with_constraints should specify a list of tuples of (constraint, Iterable[variables])")
                 if not len(var_names) > 0:
                     raise ValueError("Cannot add a constraint that applies to no variables")
-                if len(var_names) == 1:
+                # A derived variable cannot satisfy a constraint on its own, so
+                # its constraints are applied at problem level.
+                if len(var_names) == 1 and var_names[0] not in self._derived_vars:
                     tmp_single_var_constraints[var_names[0]].append(constr)
                     has_tmp_constraints = True
                 else:
@@ -594,6 +659,7 @@ class RandObj:
         Give each named variable a value:
 
         - use its concrete value if one was supplied,
+        - compute it from its rand_var_args if it is derived,
         - otherwise randomize it,
         - then set the length of any list it governs.
 
@@ -605,9 +671,14 @@ class RandObj:
         debug = state.debug
         random_vars = self._random_vars
         rand_list_lengths = self._rand_list_lengths
+        derived_vars = self._derived_vars
         for name in names:
             if name in with_values:
                 value = with_values[name]
+            elif name in derived_vars:
+                rand_var = random_vars[name]
+                rand_var.set_rand_var_args({dep: result[dep] for dep in rand_var.rand_var_args})
+                value = rand_var.randomize(tmp_single_var_constraints.get(name, []), debug)
             else:
                 value = random_vars[name].randomize(tmp_single_var_constraints.get(name, []), debug)
             result[name] = value
@@ -643,10 +714,11 @@ class RandObj:
         if not self._naive_solve:
             return False
         result = state.result
-        # Re-randomize the constrained variables in dependency order so each is
-        # randomized after the values it depends on. Randomizing a length variable
-        # sets the length of its lists, so a constrained list is re-randomized at its new length.
-        to_randomize = [name for name in self._ordered_var_names
+        # Each attempt re-randomizes the constrained variables, which include
+        # derived variables whose inputs may change. Randomizing a length
+        # variable sets its lists' length, so a constrained list is retried at
+        # the new length.
+        to_randomize = [name for name in self._random_vars
                         if name not in state.with_values and name in state.constrained_var_names]
         attempts = 0
         while attempts < self._max_iterations:
@@ -658,10 +730,13 @@ class RandObj:
 
     def _solve_csp(self, state: _RandomizeState) -> None:
         '''
-        Solve the remaining constraints with a ``MultiVarProblem``.
+        Solve the constraints with a ``MultiVarProblem``. Derived variables
+        are excluded from the solver and recomputed from the solved values.
+        Constraints that name a derived variable are checked once after solving.
 
-        :raises RandomizationError: If no solver is enabled, or the constraints
-            cannot be satisfied.
+        :raises RandomizationError: If no solver is enabled, if a derived
+            variable sets a list length, or if a constraint that names a derived
+            variable is not satisfied.
         '''
         if not (self._sparse_solve or self._thorough_solve):
             raise utils.RandomizationError(
@@ -669,14 +744,37 @@ class RandObj:
                 ' There is no way to solve the problem.'
             )
         result = state.result
+        # The solver excludes derived variables, so it cannot revise a list
+        # length that is itself derived: the list's size would stay fixed while
+        # the solver moved the variables the length is computed from. Only the
+        # naive solver handles this combination.
         constrained = state.constrained_var_names
+        derived_lengths = sorted(
+            name for name in self._rand_list_lengths
+            if name in self._derived_vars and name in constrained)
+        if derived_lengths:
+            raise utils.RandomizationError(
+                "Cannot use the constraint solver for a derived variable that sets a"
+                f" list length ({derived_lengths}). Only the naive solver supports such"
+                " variables. When enabled it runs first, so randomize() may succeed on"
+                " another seed if the naive solver satisfies the constraints there.")
+        non_derived = constrained - self._derived_vars
+        # Constraints that name a derived variable are checked after solving.
+        # The rest go to the constraint solver.
+        csp_constraints = []
+        deferred_constraints = []
+        for con, con_vars in state.constraints:
+            if any(var in self._derived_vars for var in con_vars):
+                deferred_constraints.append((con, con_vars))
+            else:
+                csp_constraints.append((con, con_vars))
         if state.has_tmp_constraints or self._problem_changed or self._multi_var_problem is None:
             # Naive solve failed, so the list lengths must become constraints.
-            csp_constraints = state.constraints + self._get_list_length_constraints(constrained)
+            csp_constraints = csp_constraints + self._get_list_length_constraints(non_derived)
             multi_var_problem = MultiVarProblem(
                 random_getter=self._get_random,
-                vars=[self._random_vars[var_name] for var_name in self._ordered_var_names
-                      if var_name in constrained],
+                vars=[self._random_vars[var_name] for var_name in self._random_vars
+                      if var_name in non_derived],
                 constraints=csp_constraints,
                 max_iterations=self._max_iterations,
                 max_domain_size=self._max_domain_size,
@@ -699,6 +797,16 @@ class RandObj:
                 "Could not solve constraint satisfaction problem"
             )
         result.update(solution)
+        # Recompute the constrained derived variables from the solved values,
+        # in dependency order, and check the constraints that name them.
+        derived_to_recompute = [name for name in self._random_vars
+                                if name in constrained and name in self._derived_vars]
+        self._randomize_variables(derived_to_recompute, state)
+        if deferred_constraints and not utils.check_constraints(deferred_constraints, result):
+            raise utils.RandomizationError(
+                "Could not satisfy a constraint that names a derived variable. The"
+                " constraint solver checks such constraints once, after solving, and does"
+                " not retry with new inputs. Enable the naive solver or relax the constraints.")
 
     def post_randomize(self) -> None:
         '''
