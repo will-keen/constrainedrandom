@@ -205,8 +205,8 @@ class RandObj:
         - any lists whose length it controls,
         - its length variable, if it is a random-length list.
 
-        This repeats for each newly marked variable. A variable can only
-        depend on variables added before it, so it always terminates.
+        This repeats for each newly marked variable. It terminates because a
+        variable that is already marked is skipped, so each is visited at most once.
 
         :param name: Variable to mark as constrained.
         :param constrained: Set of constrained variable names to update.
