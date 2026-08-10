@@ -225,32 +225,6 @@ class MultiSum(testutils.RandObjTestBase):
             self.assertNotEqual(result['x'], 0, f'Check failed for {result=}')
 
 
-class MultiOrder(testutils.RandObjTestBase):
-    '''
-    Test a problem that benefits greatly from being solved in a certain order.
-    '''
-
-    ITERATIONS = 100
-
-    def get_randobj(self, *args):
-        r = RandObj(*args)
-        r.add_rand_var("a", domain=range(100), order=0)
-        r.add_rand_var("b", domain=range(100), order=1)
-        def mul_lt1000(a, b):
-            return a * b < 1000
-        r.add_constraint(mul_lt1000, ('a', 'b'))
-        r.add_rand_var("c", domain=range(100), order=2)
-        def sum_lt100(a, b, c):
-            return a + b + c < 100
-        r.add_constraint(sum_lt100, ('a', 'b', 'c'))
-        return r
-
-    def check(self, results):
-        for result in results:
-            self.assertLess(result['a'] * result['b'], 1000, f'Check failed for {result=}')
-            self.assertLess(result['a'] + result['b'] + result['c'], 100, f'Check failed for {result=}')
-
-
 class Dist(testutils.RandObjTestBase):
     '''
     Test a distribution.

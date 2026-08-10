@@ -98,7 +98,6 @@ class RandObj:
         self._variables_changed: bool = False
         self._multi_var_problem: Optional[MultiVarProblem] = None
         self._ordered_var_names: List[str] = []
-        self._ordered_length_names: List[str] = []
 
     def _get_random(self) -> random.Random:
         '''
@@ -506,9 +505,9 @@ class RandObj:
         self._apply_temporary_constraints(state, with_constraints)
         self._apply_with_values(state, with_values, check_with_values)
 
-        self._randomize_and_set_list_lengths(state)
-        # Give every variable a base value. The solvers only revise the constrained ones.
-        self._randomize_once(state)
+        # Give every variable a value that satisfies its own constraints...
+        self._randomize_variables(self._ordered_var_names, state)
+        # ...then revise the constrained ones until the multi-variable constraints hold.
         self._solve(state)
 
         # Make the results available as member variables.
@@ -518,12 +517,18 @@ class RandObj:
 
     def _build_solve_order(self) -> None:
         '''
-        Rebuild the cached lists of variable names in solve order. They
-        depend only on which variables have been added, so they are rebuilt
-        when a variable is added rather than on every ``randomize()`` call.
+        Rebuild the cached list of variable names in dependency order, so each
+        variable comes after the ones it depends on. The order only
+        changes when a variable is added.
         '''
-        self._ordered_var_names = sorted(self._random_vars.keys())
-        self._ordered_length_names = sorted(self._rand_list_lengths.keys())
+        others = []
+        rand_length_lists = []
+        for name in sorted(self._random_vars.keys()):
+            if self._random_vars[name].has_rand_length():
+                rand_length_lists.append(name)
+            else:
+                others.append(name)
+        self._ordered_var_names = others + rand_length_lists
         self._variables_changed = False
 
     def _apply_temporary_constraints(
@@ -584,34 +589,32 @@ class RandObj:
             self._check_with_values(with_values)
         state.with_values = with_values
 
-    def _randomize_and_set_list_lengths(self, state: _RandomizeState) -> None:
+    def _randomize_variables(self, names: List[str], state: _RandomizeState) -> None:
         '''
-        Randomize each list-length variable and set the resulting length on
-        the lists it controls.
-        '''
-        for length_name in self._ordered_length_names:
-            if length_name in state.with_values:
-                length_result = state.with_values[length_name]
-            else:
-                tmp_constraints = state.tmp_single_var_constraints.get(length_name, [])
-                length_result = self._random_vars[length_name].randomize(tmp_constraints, state.debug)
-            state.result[length_name] = length_result
-            for dependent_var_name in self._rand_list_lengths[length_name]:
-                self._random_vars[dependent_var_name].set_rand_length(length_result)
+        Give each named variable a value:
 
-    def _randomize_once(self, state: _RandomizeState) -> None:
+        - use its concrete value if one was supplied,
+        - otherwise randomize it,
+        - then set the length of any list it governs.
+
+        Names must be in dependency order.
         '''
-        Randomize every variable once, skipping list-length variables, which
-        are already resolved.
-        '''
-        for name in self._ordered_var_names:
-            if name in self._rand_list_lengths:
-                continue
-            if name in state.with_values:
-                state.result[name] = state.with_values[name]
+        result = state.result
+        with_values = state.with_values
+        tmp_single_var_constraints = state.tmp_single_var_constraints
+        debug = state.debug
+        random_vars = self._random_vars
+        rand_list_lengths = self._rand_list_lengths
+        for name in names:
+            if name in with_values:
+                value = with_values[name]
             else:
-                tmp_constraints = state.tmp_single_var_constraints.get(name, [])
-                state.result[name] = self._random_vars[name].randomize(tmp_constraints, state.debug)
+                value = random_vars[name].randomize(tmp_single_var_constraints.get(name, []), debug)
+            result[name] = value
+            dependents = rand_list_lengths.get(name)
+            if dependents:
+                for dependent_var_name in dependents:
+                    random_vars[dependent_var_name].set_rand_length(value)
 
     def _solve(self, state: _RandomizeState) -> None:
         '''
@@ -640,40 +643,16 @@ class RandObj:
         if not self._naive_solve:
             return False
         result = state.result
-        with_values = state.with_values
-        tmp_single_var_constraints = state.tmp_single_var_constraints
-        constrained_var_names = state.constrained_var_names
-        debug = state.debug
+        # Re-randomize the constrained variables in dependency order so each is
+        # randomized after the values it depends on. Randomizing a length variable
+        # sets the length of its lists, so a constrained list is re-randomized at its new length.
+        to_randomize = [name for name in self._ordered_var_names
+                        if name not in state.with_values and name in state.constrained_var_names]
         attempts = 0
         while attempts < self._max_iterations:
             if utils.check_constraints(constraints, result):
                 return True
-            # Re-randomize the list-length variables first.
-            for length_name in self._ordered_length_names:
-                if length_name not in with_values and length_name in constrained_var_names:
-                    tmp_constraints = tmp_single_var_constraints.get(length_name, [])
-                    length_result = self._random_vars[length_name].randomize(tmp_constraints, debug)
-                    result[length_name] = length_result
-                    # The lists it controls change length, so re-randomize them.
-                    for dependent_var_name in self._rand_list_lengths[length_name]:
-                        self._random_vars[dependent_var_name].set_rand_length(length_result)
-                        tmp_constraints = tmp_single_var_constraints.get(dependent_var_name, [])
-                        result[dependent_var_name] = self._random_vars[dependent_var_name].randomize(tmp_constraints, debug)
-            for var in self._ordered_var_names:
-                if var not in constrained_var_names:
-                    continue
-                # Don't re-randomize a concrete value.
-                if var in with_values:
-                    continue
-                # List-length variables are dealt with above.
-                if var in self._rand_list_lengths:
-                    continue
-                # Don't re-randomize a list whose length was already re-randomized.
-                rand_length = self._random_vars[var].rand_length
-                if rand_length is not None and rand_length in constrained_var_names:
-                    continue
-                tmp_constraints = tmp_single_var_constraints.get(var, [])
-                result[var] = self._random_vars[var].randomize(tmp_constraints, debug)
+            self._randomize_variables(to_randomize, state)
             attempts += 1
         return False
 
