@@ -46,7 +46,19 @@ class MultiVarProblem:
         self.max_iterations = max_iterations
         self.max_domain_size = max_domain_size
         self.order: Optional[List[List[RandVar]]] = None
+        # A random-length list's domain size is its current length, so a cached
+        # order goes stale when a length changes.
+        self.order_domain_sizes: Optional[Dict[str, int]] = None
         self.debug_info: Optional[debug.RandomizationDebugInfo] = None
+
+    def get_domain_sizes(self) -> Dict[str, int]:
+        """
+        Return the current domain size of each variable, by name.
+
+        A random-length list's domain size is its current length, so the
+        result is only valid until the next randomization.
+        """
+        return {var.name: var.get_domain_size() for var in self.vars}
 
     def determine_order(self, with_values: Dict[str, Any]) -> List[List['RandVar']]:
         """
@@ -61,7 +73,12 @@ class MultiVarProblem:
         """
         # Use 'cached' version if no concrete values are specified
         problem_changed = len(with_values) != 0
-        if not problem_changed and self.order is not None:
+        domain_sizes = self.get_domain_sizes()
+        if (
+            not problem_changed
+            and self.order is not None
+            and domain_sizes == self.order_domain_sizes
+        ):
             return self.order
 
         # Aim to build a list of lists, each inner list denoting a group of variables
@@ -89,20 +106,21 @@ class MultiVarProblem:
         # Currently this is just a flat list. Group into as large groups as possible.
         result = [[sorted_vars[0]]]
         index = 0
-        domain_size = sorted_vars[0].get_domain_size()
+        domain_size = domain_sizes[sorted_vars[0].name]
         for var in sorted_vars[1:]:
-            domain_size = domain_size * var.get_domain_size()
+            domain_size = domain_size * domain_sizes[var.name]
             if var.order == result[index][0].order and domain_size < self.max_domain_size:
                 # Put it in the same group as the previous one, carry on
                 result[index].append(var)
             else:
                 # Make a new group
                 index += 1
-                domain_size = var.get_domain_size()
+                domain_size = domain_sizes[var.name]
                 result.append([var])
 
         if not problem_changed:
             self.order = result
+            self.order_domain_sizes = domain_sizes
 
         return result
 

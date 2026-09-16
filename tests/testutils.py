@@ -211,6 +211,20 @@ class RandObjTestBase(TestBase):
                         'Non-determinism detected, results were not equal after constraints added',
                     )
 
+    def check_history_independent(self, randobj: RandObj, r: random.Random) -> None:
+        """
+        Check that a fresh object given ``randobj``'s generator state randomizes
+        to the same results as a copy of ``randobj``.
+        """
+        warm = deepcopy(randobj)
+        fresh_random = random.Random()
+        fresh_random.setstate(r.getstate())
+        fresh = self.get_randobj(fresh_random)
+        n = max(1, self.iterations // 2)
+        expected, _perf = self.randomize_and_time(warm, n)
+        results, _perf = self.randomize_and_time(fresh, n)
+        assertListOfDictsEqual(self, expected, results, 'Results depended on solve history')
+
     def test_randobj(self) -> None:
         """
         Reusable test function to randomize a RandObj for a number of iterations and perform checks.
@@ -241,6 +255,7 @@ class RandObjTestBase(TestBase):
             else:
                 results, _perf = self.randomize_and_time(randobj, self.iterations)
                 self.check(results)
+                self.check_history_independent(randobj, r)
                 if do_tmp_checks:
                     # Check when applying temporary constraints
                     tmp_results, _perf = self.randomize_and_time(
