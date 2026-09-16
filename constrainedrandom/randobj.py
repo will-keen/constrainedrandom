@@ -293,19 +293,16 @@ class RandObj:
 
     def set_random(self, _random: Optional[random.Random] = None) -> None:
         """
-        Set the random instance for this RandObj and propagate to all existing random variables.
+        Set the random generator for this object and every random variable
+        added so far.
 
-        This is useful when the random instance is not available at construction time
-        but needs to be set before randomization. Unlike passing ``_random`` to ``__init__``,
-        this method propagates to :class:`RandVar` objects that were already created.
-
-        :param _random: A ``random.Random`` instance to use for randomization, or ``None`` to
-            use the default random module.
+        :param _random: An instance of ``random.Random``, or ``None`` to use
+            the global Python random package.
         :return: ``None``
         """
         self._random = _random
         for rand_var in self._random_vars.values():
-            rand_var._random = _random
+            rand_var.set_random(_random)
 
     def set_solver_mode(
         self,

@@ -391,6 +391,16 @@ class RandVar:
             raise ValueError(f"Random list length was negative for variable '{self.name}'.")
         self.rand_length_val = length
 
+    def set_random(self, _random: Optional[random.Random] = None) -> None:
+        """
+        Set the random generator this variable uses.
+
+        :param _random: An instance of ``random.Random``, or ``None`` to use
+            the global Python random package.
+        :return: ``None``
+        """
+        self._random = _random
+
     def _get_random(self) -> random.Random:
         """
         Internal function to get the appropriate randomization object.

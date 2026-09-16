@@ -225,6 +225,66 @@ class RandObjTestBase(TestBase):
         results, _perf = self.randomize_and_time(fresh, n)
         assertListOfDictsEqual(self, expected, results, 'Results depended on solve history')
 
+    def check_set_random(
+        self,
+        results0: List[Dict[str, Any]],
+        results1: List[Dict[str, Any]],
+    ) -> None:
+        """
+        Check that ``set_random`` switches generator without advancing either
+        generator's stream, that it applies to variables added before the call,
+        and that ``None`` selects the global Python random package.
+
+        ``results0`` and ``results1`` come from fresh objects seeded 0 and 1.
+        The first ``n`` of each are the reference, where ``n`` is about half
+        the iteration count. The generators alternate for ``2n`` steps, so each
+        is resumed at every step, except with one iteration, where the first
+        generator is never resumed.
+        """
+        n = min(self.iterations, max(2, self.iterations // 2))
+        expected = {0: results0[:n], 1: results1[:n]}
+        reference = {}
+        for seed in (0, 1):
+            randobj = self.get_randobj()
+            reference[seed] = random.Random(seed)
+            randobj.set_random(reference[seed])
+            results, _perf = self.randomize_and_time(randobj, n)
+            assertListOfDictsEqual(
+                self,
+                expected[seed],
+                results,
+                f'set_random(Random({seed})) after construction gave different results',
+            )
+        generators = {0: random.Random(0), 1: random.Random(1)}
+        randobj = self.get_randobj(generators[0])
+        interleaved = {0: [], 1: []}
+        for step in range(2 * n):
+            seed = step % 2
+            randobj.set_random(generators[seed])
+            randobj.randomize()
+            interleaved[seed].append(randobj.get_results())
+        for seed in (0, 1):
+            assertListOfDictsEqual(
+                self,
+                expected[seed],
+                interleaved[seed],
+                f'interleaving generators changed the results for seed {seed}',
+            )
+            self.assertEqual(
+                generators[seed].getstate(),
+                reference[seed].getstate(),
+                f'interleaving generators changed the state of the generator for seed {seed}',
+            )
+        randobj.set_random(None)
+        random.seed(0)
+        results, _perf = self.randomize_and_time(randobj, n)
+        assertListOfDictsEqual(
+            self,
+            expected[0],
+            results,
+            'set_random(None) did not fall back to the global random package',
+        )
+
     def test_randobj(self) -> None:
         """
         Reusable test function to randomize a RandObj for a number of iterations and perform checks.
@@ -327,6 +387,7 @@ class RandObjTestBase(TestBase):
                     results1,
                     'Results were the same for two different seeds, check testcase.',
                 )
+                self.check_set_random(results, results1)
                 if do_tmp_checks:
                     # Check results are also different when applying temporary constraints
                     tmp_results1, _perf = self.randomize_and_time(
