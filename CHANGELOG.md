@@ -33,6 +33,7 @@ Results with the same problem and same seed may differ from 1.2.2. The entries u
 - A failed `add_constraint` no longer leaves the object unusable.
 - Using a random-length list as another variable's `rand_length` now raises an error.
 - Failure messages no longer omit debug information.
+- The CSP solve order is rebuilt when a random-length list's length changes, so results no longer depend on earlier randomizations. Seeded results change for problems with random-length lists that reach the CSP solver.
 
 ### Performance
 - Constraints on concrete values are checked directly rather than via the `constraint` package. 3.5x faster on `ldInstr`, up to 7.6x on multi-variable naive solving.
