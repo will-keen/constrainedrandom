@@ -17,6 +17,7 @@ Results with the same problem and same seed may differ from 1.2.2. The entries u
 ### Added
 - Derived variables: `add_rand_var(..., fn=..., rand_var_args=(...))` computes a variable's value from other variables.
 - `randomize(with_values=...)` validates the given values against domains and constraints. Pass `check_with_values=False` to skip.
+- `RandObj.set_random(_random)` sets the random generator after construction, for the object and every variable already added.
 
 ### Changed
 - `range` domains use their `step`. Seeded results change for stepped ranges.
