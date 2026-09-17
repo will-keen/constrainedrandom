@@ -30,7 +30,7 @@ class DerivedScalar(testutils.RandObjTestBase):
         seen_a = set()
         seen_b = set()
         for result in results:
-            self.assertIn(result['a'], range(10), "Base variable wrongly randomized")
+            self.assertIn(result['a'], range(10), "Base variable out of domain")
             self.assertEqual(result['b'], result['a'] + 1, "Derived value incorrect")
             seen_a.add(result['a'])
             seen_b.add(result['b'])
@@ -40,8 +40,7 @@ class DerivedScalar(testutils.RandObjTestBase):
 
 class DerivedChain(testutils.RandObjTestBase):
     '''
-    Test a chain of derived variables (a derived variable depending on
-    another derived variable).
+    Test a chain of derived variables.
     '''
 
     ITERATIONS = 1000
@@ -62,13 +61,12 @@ class DerivedChain(testutils.RandObjTestBase):
             seen_a.add(result['a'])
             seen_c.add(result['c'])
         self.assertGreaterEqual(len(seen_a), 8, "Base variable did not produce enough distinct values")
-        self.assertGreaterEqual(len(seen_c), 8, "End-of-chain derived variable did not produce enough distinct values")
+        self.assertGreaterEqual(len(seen_c), 8, "Last derived variable in the chain did not produce enough distinct values")
 
 
 class DerivedCombinedArgs(testutils.RandObjTestBase):
     '''
-    Test a derived variable that combines static ``args`` with ``rand_var_args``.
-    ``fn`` is called as ``fn(*args, *rand_var_arg_values)``.
+    Test a derived variable with both ``args`` and ``rand_var_args``.
     '''
 
     ITERATIONS = 1000
@@ -89,8 +87,7 @@ class DerivedCombinedArgs(testutils.RandObjTestBase):
 
 class DerivedConstrained(testutils.RandObjTestBase):
     '''
-    Test a constraint on a derived variable. The constraint must be
-    satisfied by re-randomizing the variable it is derived from.
+    Test a constraint on a derived variable.
     '''
 
     ITERATIONS = 1000
@@ -110,15 +107,13 @@ class DerivedConstrained(testutils.RandObjTestBase):
             self.assertEqual(result['b'], result['a'] + 1, "Derived value incorrect")
             self.assertGreater(result['b'], 5, "Constraint on derived variable not respected")
             seen_b.add(result['b'])
-        # The constraint allows b in 6..10. Check the observed solutions cover most of the space.
+        # The constraint allows b in 6..10. Check most of those values are observed.
         self.assertGreaterEqual(len(seen_b), 4, "Constrained derived variable did not produce enough distinct values")
 
 
 class DerivedTmpConstraint(testutils.RandObjTestBase):
     '''
-    A temporary single-variable constraint on a derived variable. As for a
-    base constraint, it must be satisfied by re-randomizing the variable it
-    is derived from.
+    Test a temporary constraint on a derived variable.
     '''
 
     ITERATIONS = 100
@@ -195,16 +190,14 @@ class DerivedListLength(testutils.RandObjTestBase):
             self.assertEqual(len(result['list']), result['l'],
                              "List length does not match its derived length variable")
             for element in result['list']:
-                self.assertIn(element, range(2), "List element wrongly randomized")
+                self.assertIn(element, range(2), "List element out of domain")
             seen_lengths.add(result['l'])
         self.assertGreaterEqual(len(seen_lengths), 8, "List length did not produce enough distinct values")
 
 
 class DerivedFromList(testutils.RandObjTestBase):
     '''
-    Test a derived variable computed from a random-length list. This is the
-    reverse dependency of DerivedListLength: here the derived variable must be
-    computed after the list, whereas there it must be computed before it.
+    Test a derived variable computed from a random-length list.
     '''
 
     ITERATIONS = 1000
@@ -227,10 +220,8 @@ class DerivedFromList(testutils.RandObjTestBase):
 
 class DerivedChainThroughList(testutils.RandObjTestBase):
     '''
-    A derived variable sets a list's length, and another derived variable is
-    computed from that list. A constraint on the root input must re-randomize
-    the whole chain. A temporary constraint on the end of the chain must
-    re-randomize back to the root.
+    Test a derived variable that sets a list's length, and another derived
+    variable computed from that list.
     '''
 
     ITERATIONS = 200
@@ -265,9 +256,7 @@ class DerivedChainThroughList(testutils.RandObjTestBase):
 
 class DerivedListLengthReverseAlpha(testutils.RandObjTestBase):
     '''
-    A derived length variable whose name sorts before the variable it is
-    computed from. Alphabetical order would compute it first, before its input
-    has a value, so this only works if randomization follows dependency order.
+    Test a derived length variable whose name sorts before the name of its input.
     '''
 
     ITERATIONS = 1000
@@ -290,9 +279,7 @@ class DerivedListLengthReverseAlpha(testutils.RandObjTestBase):
 
 class DerivedListLengthConstrained(testutils.RandObjTestBase):
     '''
-    A constraint on a derived length variable, satisfied by the naive solver.
-    The naive solver must recompute the derived length and resize its list on
-    each attempt.
+    Test a constraint on a derived length variable.
     '''
 
     ITERATIONS = 100
@@ -318,10 +305,7 @@ class DerivedListLengthConstrained(testutils.RandObjTestBase):
 
 class DerivedListLengthInputConstrained(testutils.RandObjTestBase):
     '''
-    A list whose length is a derived variable, with the constraint on the
-    derived variable's input rather than on the derived variable itself.
-    The naive solver must re-randomize the list whenever its length is
-    recomputed.
+    Test a constraint on the input of a derived length variable.
     '''
 
     ITERATIONS = 200
@@ -345,9 +329,7 @@ class DerivedListLengthInputConstrained(testutils.RandObjTestBase):
 
 class WithValuesDerivedLength(testutils.RandObjTestBase):
     '''
-    Give a concrete value to a list whose length is a derived variable. As for
-    an ordinary length variable, the length follows the pinned list, so
-    with_values overrides the value the function would otherwise compute.
+    Test giving a concrete value to a list whose length is a derived variable.
     '''
 
     ITERATIONS = 100
@@ -370,16 +352,14 @@ class WithValuesDerivedLength(testutils.RandObjTestBase):
     def tmp_check(self, results):
         for result in results:
             self.assertEqual(result['mylist'], [0, 1, 0], "Temp value not respected")
-            self.assertEqual(result['l'], 3, "Derived length did not follow the pinned list")
+            self.assertEqual(result['l'], 3, "Derived length not set from the given list")
         self.assertTrue(any(result['l'] != result['a'] + 1 for result in results),
-                        "Pinned list never overrode the value fn would compute")
+                        "Given list never overrode the value fn would compute")
 
 
 class DerivedChainCSP(testutils.RandObjTestBase):
     '''
-    A chain of derived variables whose input is solved by the constraint
-    solver. The naive solver is disabled so the constraint solver handles
-    the derived variables.
+    Test a chain of derived variables with the naive solver disabled.
     '''
 
     ITERATIONS = 100
@@ -401,13 +381,12 @@ class DerivedChainCSP(testutils.RandObjTestBase):
             self.assertEqual(result['b'], result['x'] * 2, "Derived value incorrect")
             self.assertEqual(result['c'], result['b'] + 1, "Chained derived value incorrect")
             seen_c.add(result['c'])
-        self.assertGreaterEqual(len(seen_c), 3, "End-of-chain derived variable did not produce enough distinct values")
+        self.assertGreaterEqual(len(seen_c), 3, "Last derived variable in the chain did not produce enough distinct values")
 
 
 class DerivedConstrainedCSP(testutils.RandObjTestBase):
     '''
-    A constraint on a derived variable with the naive solver disabled. The
-    inputs are constrained so that the deferred check always passes.
+    Test a constraint on a derived variable with the naive solver disabled.
     '''
 
     ITERATIONS = 100
@@ -433,13 +412,245 @@ class DerivedConstrainedCSP(testutils.RandObjTestBase):
         self.assertGreaterEqual(len(seen_b), 3, "Constrained derived variable did not produce enough distinct values")
 
 
+class DerivedTwoInputs(testutils.RandObjTestBase):
+    '''
+    Test a derived variable of two inputs.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('a', domain=range(10))
+        r.add_rand_var('b', domain=range(10))
+        r.add_rand_var('d', fn=lambda a, b: a * 10 + b, rand_var_args=('a', 'b'))
+        return r
+
+    def check(self, results):
+        seen_d = set()
+        for result in results:
+            self.assertEqual(result['d'], result['a'] * 10 + result['b'], "Derived value incorrect")
+            seen_d.add(result['d'])
+        self.assertGreaterEqual(len(seen_d), 50, "Derived variable did not produce enough distinct values")
+
+
+class DerivedTwoInputsOneConstrained(DerivedTwoInputs):
+    '''
+    Test a derived variable of two inputs with a constraint on one of them.
+    '''
+
+    def get_randobj(self, *args):
+        r = super().get_randobj(*args)
+        r.add_constraint(lambda a: a > 5, ('a',))
+        return r
+
+    def check(self, results):
+        seen_b = set()
+        seen_d = set()
+        for result in results:
+            self.assertEqual(result['d'], result['a'] * 10 + result['b'], "Derived value incorrect")
+            self.assertGreater(result['a'], 5, "Constraint not respected")
+            seen_b.add(result['b'])
+            seen_d.add(result['d'])
+        self.assertGreaterEqual(len(seen_b), 9, "Unconstrained input did not produce enough distinct values")
+        self.assertGreaterEqual(len(seen_d), 30, "Derived variable did not produce enough distinct values")
+
+
+class DerivedTwoInputsConstrained(testutils.RandObjTestBase):
+    '''
+    Test a constraint on a derived variable of two inputs.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('a', domain=range(10))
+        r.add_rand_var('b', domain=range(10))
+        r.add_rand_var('x', domain=range(1, 5))
+        r.add_rand_var('d', fn=lambda a, b: a * 10 + b, rand_var_args=('a', 'b'))
+        # a + x == 10 forces a into 6..9, so d >= 50 always holds.
+        r.add_constraint(lambda a, x: a + x == 10, ('a', 'x'))
+        r.add_constraint(lambda d: d >= 50, ('d',))
+        return r
+
+    def check(self, results):
+        seen_a = set()
+        seen_b = set()
+        for result in results:
+            self.assertEqual(result['d'], result['a'] * 10 + result['b'], "Derived value incorrect")
+            self.assertEqual(result['a'] + result['x'], 10, "Constraint not respected")
+            self.assertGreaterEqual(result['d'], 50, "Constraint on derived variable not respected")
+            seen_a.add(result['a'])
+            seen_b.add(result['b'])
+        self.assertGreaterEqual(len(seen_a), 3, "First input did not produce enough distinct values")
+        self.assertGreaterEqual(len(seen_b), 8, "Second input did not produce enough distinct values")
+
+
+class DerivedTwoInputsConstrainedSparse(DerivedTwoInputsConstrained):
+    '''
+    The same problem with the naive solver disabled.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = super().get_randobj(*args)
+        r.set_solver_mode(naive=False)
+        return r
+
+
+class DerivedTwoInputsConstrainedThorough(DerivedTwoInputsConstrained):
+    '''
+    The same problem with only the thorough solver enabled.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = super().get_randobj(*args)
+        r.set_solver_mode(naive=False, sparse=False)
+        return r
+
+
+class DerivedTwoInputsWithValues(DerivedTwoInputs):
+    '''
+    Test a derived variable of two inputs, one given a concrete value.
+    '''
+
+    def get_tmp_values(self):
+        return {'b': 3}
+
+    def tmp_check(self, results):
+        for result in results:
+            self.assertEqual(result['b'], 3, "Temp value not respected")
+            self.assertEqual(result['d'], result['a'] * 10 + 3, "Derived value incorrect")
+
+
+class DerivedRepeatedInput(testutils.RandObjTestBase):
+    '''
+    Test the same input named twice in ``rand_var_args``.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('a', domain=range(10))
+        r.add_rand_var('d', fn=lambda x, y: x * 10 + y, rand_var_args=('a', 'a'))
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertEqual(result['d'], result['a'] * 11, "Derived value incorrect")
+
+
+class DerivedDiamond(testutils.RandObjTestBase):
+    '''
+    Test two derived variables sharing an input, and a third derived from both.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('a', domain=range(10))
+        r.add_rand_var('x', domain=range(1, 5))
+        r.add_rand_var('b', fn=lambda a: a * 2, rand_var_args=('a',))
+        r.add_rand_var('c', fn=lambda a: a + 1, rand_var_args=('a',))
+        r.add_rand_var('d', fn=lambda b, c: b + c, rand_var_args=('b', 'c'))
+        r.add_constraint(lambda a, x: a + x == 10, ('a', 'x'))
+        return r
+
+    def check(self, results):
+        seen_d = set()
+        for result in results:
+            self.assertEqual(result['a'] + result['x'], 10, "Constraint not respected")
+            self.assertEqual(result['b'], result['a'] * 2, "Derived value incorrect")
+            self.assertEqual(result['c'], result['a'] + 1, "Derived value incorrect")
+            self.assertEqual(result['d'], result['a'] * 3 + 1, "Derived value at the end of the diamond incorrect")
+            seen_d.add(result['d'])
+        self.assertGreaterEqual(len(seen_d), 3, "Derived variable did not produce enough distinct values")
+
+
+class DerivedDiamondSparse(DerivedDiamond):
+    '''
+    The same problem with the naive solver disabled.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = super().get_randobj(*args)
+        r.set_solver_mode(naive=False)
+        return r
+
+
+class DerivedDiamondThorough(DerivedDiamond):
+    '''
+    The same problem with only the thorough solver enabled.
+    '''
+
+    ITERATIONS = 100
+
+    def get_randobj(self, *args):
+        r = super().get_randobj(*args)
+        r.set_solver_mode(naive=False, sparse=False)
+        return r
+
+
+class DerivedMixedInputs(testutils.RandObjTestBase):
+    '''
+    Test a derived variable whose inputs are a plain variable, a random-length
+    list and another derived variable.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('a', domain=range(10))
+        r.add_rand_var('n', domain=range(1, 4))
+        r.add_rand_var('lst', domain=range(5), rand_length='n')
+        r.add_rand_var('e', fn=lambda a: a + 1, rand_var_args=('a',))
+        r.add_rand_var('d', fn=lambda a, lst, e: a * 100 + sum(lst) * 10 + e, rand_var_args=('a', 'lst', 'e'))
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertEqual(len(result['lst']), result['n'], "List length incorrect")
+            self.assertEqual(result['e'], result['a'] + 1, "Derived value incorrect")
+            self.assertEqual(result['d'], result['a'] * 100 + sum(result['lst']) * 10 + result['e'],
+                             "Derived value from mixed inputs incorrect")
+
+
+class DerivedChainTwoInputs(testutils.RandObjTestBase):
+    '''
+    Test a chain of derived variables, each of two inputs.
+    '''
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('a', domain=range(10))
+        r.add_rand_var('b', domain=range(10))
+        r.add_rand_var('c', fn=lambda a, b: a + b, rand_var_args=('a', 'b'))
+        r.add_rand_var('d', fn=lambda c, a: c * a, rand_var_args=('c', 'a'))
+        r.add_rand_var('e', fn=lambda d, c: d - c, rand_var_args=('d', 'c'))
+        return r
+
+    def check(self, results):
+        for result in results:
+            a, b = result['a'], result['b']
+            self.assertEqual(result['c'], a + b, "First derived value incorrect")
+            self.assertEqual(result['d'], (a + b) * a, "Second derived value incorrect")
+            self.assertEqual(result['e'], (a + b) * a - (a + b), "Third derived value incorrect")
+
+
 class DerivedRandVarErrors(unittest.TestCase):
     '''
-    ``RandVar`` raises if ``set_rand_var_args`` is called on a non-derived
-    variable, or if a derived variable is randomized before it is called.
-    ``RandObj`` validates before reaching these paths, so they are tested on
-    a ``RandVar`` directly. A plain ``TestCase`` suffices as they do not call
-    ``randomize()``.
+    Test the errors ``RandVar`` raises for misuse of ``set_rand_var_args``.
     '''
 
     def make_randvar(self, **kwargs):
@@ -465,10 +676,6 @@ class DerivedRandVarErrors(unittest.TestCase):
 class DerivedStochastic(unittest.TestCase):
     '''
     Test a derived variable whose function itself uses randomness.
-
-    Uses a plain ``TestCase`` rather than a ``RandObjTestBase``: the function
-    must draw from the object's own generator, which the base test's deepcopy
-    check cannot preserve. Repeatability is verified directly here instead.
     '''
 
     def make_randobj(self, seed):
