@@ -585,7 +585,7 @@ class RandObj:
         self._apply_with_values(state, with_values, check_with_values)
 
         # Give every variable a value that satisfies its own constraints...
-        self._randomize_variables(self._random_vars, state)
+        self._randomize_variables(self._random_vars.keys(), state)
         # ...then revise the constrained ones until the multi-variable constraints hold.
         self._solve(state)
 
@@ -654,7 +654,7 @@ class RandObj:
             self._check_with_values(with_values)
         state.with_values = with_values
 
-    def _randomize_variables(self, names: List[str], state: _RandomizeState) -> None:
+    def _randomize_variables(self, names: Iterable[str], state: _RandomizeState) -> None:
         '''
         Give each named variable a value:
 
@@ -718,7 +718,7 @@ class RandObj:
         # derived variables whose inputs may change. Randomizing a length
         # variable sets its lists' length, so a constrained list is retried at
         # the new length.
-        to_randomize = [name for name in self._random_vars
+        to_randomize = [name for name in self._random_vars.keys()
                         if name not in state.with_values and name in state.constrained_var_names]
         attempts = 0
         while attempts < self._max_iterations:
@@ -773,7 +773,7 @@ class RandObj:
             csp_constraints = csp_constraints + self._get_list_length_constraints(non_derived)
             multi_var_problem = MultiVarProblem(
                 random_getter=self._get_random,
-                vars=[self._random_vars[var_name] for var_name in self._random_vars
+                vars=[self._random_vars[var_name] for var_name in self._random_vars.keys()
                       if var_name in non_derived],
                 constraints=csp_constraints,
                 max_iterations=self._max_iterations,
@@ -799,7 +799,7 @@ class RandObj:
         result.update(solution)
         # Recompute the constrained derived variables from the solved values,
         # in dependency order, and check the constraints that name them.
-        derived_to_recompute = [name for name in self._random_vars
+        derived_to_recompute = [name for name in self._random_vars.keys()
                                 if name in constrained and name in self._derived_vars]
         self._randomize_variables(derived_to_recompute, state)
         if deferred_constraints and not utils.check_constraints(deferred_constraints, result):

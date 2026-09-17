@@ -144,6 +144,20 @@ class DerivedUnknownArg(testutils.RandObjTestBase):
         return randobj
 
 
+class DerivedSelfReference(testutils.RandObjTestBase):
+    '''
+    Test that a derived variable cannot name itself in rand_var_args. It does
+    not exist yet when it is added, so this is the same error as any unknown name.
+    '''
+
+    EXPECTED_ERROR_INIT = ValueError
+
+    def get_randobj(self, *args):
+        randobj = RandObj(*args)
+        randobj.add_rand_var('b', fn=lambda b: b + 1, rand_var_args=('b',))
+        return randobj
+
+
 class DerivedWithLength(testutils.RandObjTestBase):
     '''
     Test that a derived variable is rejected as a fixed-length list.
