@@ -9,6 +9,7 @@ Documentation for ``constrainedrandom``
    howto
    examples
    constrainedrandom
+   changelog
 
 Indices and tables
 ==================
