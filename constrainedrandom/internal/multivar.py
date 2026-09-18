@@ -3,19 +3,17 @@
 
 import random
 from collections import defaultdict
-from typing import Any, Callable, Dict, Iterable, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Union
 
+from .. import debug, utils
 from .vargroup import VarGroup
-
-from .. import debug
-from .. import utils
 
 if TYPE_CHECKING:
     from ..internal.randvar import RandVar
 
 
 class MultiVarProblem:
-    '''
+    """
     Multi-variable problem. Used internally by RandObj.
     Represents one problem concerning multiple random variables,
     where those variables all share dependencies on one another.
@@ -31,7 +29,7 @@ class MultiVarProblem:
         size, we don't use the ``constraint`` package, but just use ``random`` instead.
         For :class:`MultiVarProblem`, we also use this to determine the maximum size of a
         solution group.
-    '''
+    """
 
     def __init__(
         self,
@@ -47,11 +45,11 @@ class MultiVarProblem:
         self.constraints = constraints
         self.max_iterations = max_iterations
         self.max_domain_size = max_domain_size
-        self.order: Optional[List[List['RandVar']]] = None
+        self.order: Optional[List[List[RandVar]]] = None
         self.debug_info: Optional[debug.RandomizationDebugInfo] = None
 
     def determine_order(self, with_values: Dict[str, Any]) -> List[List['RandVar']]:
-        '''
+        """
         Chooses an order in which to resolve the values of the variables.
         Used internally.
 
@@ -60,7 +58,7 @@ class MultiVarProblem:
         :return: A list of lists denoting the order in which to solve the problem.
             Each inner list is a group of variables that can be solved at the same
             time. Each inner list will be considered separately.
-        '''
+        """
         # Use 'cached' version if no concrete values are specified
         problem_changed = len(with_values) != 0
         if not problem_changed and self.order is not None:
@@ -113,14 +111,14 @@ class MultiVarProblem:
         groups: List[List['RandVar']],
         with_values: Dict[str, Any],
         max_iterations: int,
-        solutions_per_group: Optional[int]=None,
-        debug: bool=False,
+        solutions_per_group: Optional[int] = None,
+        debug: bool = False,
     ) -> Union[Dict[str, Any], None]:
-        '''
+        """
         Constraint solving algorithm. (Used internally by :class:`MultiVarProblem`)
 
-        :param groups: The list of lists denoting the order in which to resolve the random variables.
-            See :func:`determine_order`.
+        :param groups: The list of lists denoting the order in which to resolve the random
+            variables. See :func:`determine_order`.
         :param with_values: Dictionary of variables with set values for this
             randomization.
         :param max_iterations: The maximum number of failed attempts to solve the randomization
@@ -142,15 +140,15 @@ class MultiVarProblem:
         :returns: A valid solution to the problem, in the form of a dictionary with the
             names of the random variables as keys and the valid solution as the values.
             Returns ``None`` if no solution is found within the allotted ``max_iterations``.
-        '''
+        """
         constraints = self.constraints
         sparse_solver = solutions_per_group is not None
-        solutions : List[Dict[str, Any]] = []
-        solved_vars : List[str] = []
+        solutions: List[Dict[str, Any]] = []
+        solved_vars: List[str] = []
 
         # Respect assigned temporary values.
         if len(with_values) > 0:
-            for var_name in with_values.keys():
+            for var_name in with_values:
                 solved_vars.append(var_name)
             solutions.append(with_values)
 
@@ -177,14 +175,13 @@ class MultiVarProblem:
                 if sparse_solver and len(solutions) > 0:
                     # Respect a proportion of the solution space, determined
                     # by the sparsity/solutions_per_group.
-                        # Start by choosing a subset of the possible solutions.
-                        if solutions_per_group >= len(solutions):
-                            solution_subset = list(solutions)
-                        else:
-                            solution_subset = self.random_getter().choices(
-                                solutions,
-                                k=solutions_per_group
-                            )
+                    # Start by choosing a subset of the possible solutions.
+                    if solutions_per_group >= len(solutions):
+                        solution_subset = list(solutions)
+                    else:
+                        solution_subset = self.random_getter().choices(
+                            solutions, k=solutions_per_group
+                        )
                 else:
                     # If not sparse, maintain the entire list of possible solutions.
                     solution_subset = list(solutions)
@@ -231,10 +228,10 @@ class MultiVarProblem:
         sparse: bool,
         sparsities: List[int],
         thorough: bool,
-        with_values: Optional[Dict[str, Any]]=None,
-        debug: bool=False,
+        with_values: Optional[Dict[str, Any]] = None,
+        debug: bool = False,
     ) -> Union[Dict[str, Any], None]:
-        '''
+        """
         Attempt to solve the variables with respect to the constraints.
 
         :param with_values: Dictionary of variables with set values for this
@@ -245,7 +242,7 @@ class MultiVarProblem:
             all debug info along the way and not just the final failure.
         :raises RandomizationError: When the problem cannot be solved in fewer than
             the allowed number of iterations.
-        '''
+        """
         with_values = {} if with_values is None else with_values
         groups = self.determine_order(with_values)
         solution = None
@@ -284,7 +281,7 @@ class MultiVarProblem:
             )
         if solution is None:
             raise utils.RandomizationError(
-                "Could not solve multi-variable constraint problem.",
+                'Could not solve multi-variable constraint problem.',
                 str(self.debug_info),
             )
         return solution

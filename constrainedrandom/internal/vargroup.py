@@ -1,19 +1,20 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-import constraint
 from functools import cached_property
-from typing import Any, Dict, List, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union
+
+import constraint
 
 from .. import utils
-from ..debug import RandomizationDebugInfo, RandomizationFail
+from ..debug import RandomizationDebugInfo
 
 if TYPE_CHECKING:
     from ..internal.randvar import RandVar
 
 
 class VarGroup:
-    '''
+    """
     Represents a group of random variables to be solved together.
 
     Determines which variables in the group can be solved via a
@@ -29,7 +30,7 @@ class VarGroup:
     :param max_domain_size: The maximum size of domain that a constraint satisfaction problem
         may take. This is used to avoid poor performance. When a problem exceeds this domain
         size, we don't use the ``constraint`` package, but just use ``random`` instead.
-    '''
+    """
 
     def __init__(
         self,
@@ -39,9 +40,9 @@ class VarGroup:
         max_domain_size: int,
     ) -> None:
         self.solution_space = solution_space
-        self.group_vars: List['RandVar'] = group
+        self.group_vars: List[RandVar] = group
         self.group_var_names: List[str] = []
-        self.rand_vars: List['RandVar'] = []
+        self.rand_vars: List[RandVar] = []
         self.raw_constraints: List[utils.ConstraintAndVars] = []
         self.problem = constraint.Problem()
         self.max_domain_size = max_domain_size
@@ -70,8 +71,10 @@ class VarGroup:
 
             # Either add to constraint problem with full domain,
             # or treat it as a variable to be randomized.
-            if (var.can_use_with_constraint() and
-                var.get_domain_size(possible_lengths) < self.max_domain_size):
+            if (
+                var.can_use_with_constraint()
+                and var.get_domain_size(possible_lengths) < self.max_domain_size
+            ):
                 self.problem.addVariable(var.name, var.get_constraint_domain(possible_lengths))
                 # If variable has its own constraints, these must be added to the problem,
                 # regardless of whether var.check_constraints is true, as the var's value will
@@ -82,7 +85,10 @@ class VarGroup:
                         self.problem.addConstraint(list_con, (var.name,))
                         self.raw_constraints.append((list_con, (var.name,)))
                     for con in var.constraints:
-                        wrapped_con = lambda listvar, _con=con : all([_con(x) for x in listvar])
+
+                        def wrapped_con(listvar, _con=con):
+                            return all([_con(x) for x in listvar])
+
                         self.problem.addConstraint(wrapped_con, (var.name,))
                         self.raw_constraints.append((wrapped_con, (var.name,)))
                 else:
@@ -94,7 +100,7 @@ class VarGroup:
                 self.rand_vars.append(var)
 
         # Add all pertinent constraints
-        for (con, vars) in constraints:
+        for con, vars in constraints:
             skip = False
             for var in vars:
                 if var not in self.group_var_names and var not in solution_space:
@@ -109,30 +115,30 @@ class VarGroup:
 
     @cached_property
     def debug_info(self) -> RandomizationDebugInfo:
-        '''
+        """
         Debug information. Cached so it gets created once.
-        '''
+        """
         return RandomizationDebugInfo(self.group_vars, self.raw_constraints)
 
     def can_retry(self) -> bool:
-        '''
+        """
         Call this to determine whether or not retrying ``solve``
         can have a different outcome.
 
         :return: ``True`` if calling ``solve`` again might yield
             a different result (assuming it has already been called.)
             ``False`` otherwise.
-        '''
+        """
         return len(self.rand_vars) > 0
 
     def get_remaining_constraints(self) -> List[utils.ConstraintAndVars]:
-        '''
+        """
         Call this to get the constraints that must
         still be applied to other variables in future.
 
         :return: A list of tuples, each tuple containing a
             constraint and a tuple of its variables.
-        '''
+        """
         return self.remaining_constraints
 
     def concretize_rand_length(
@@ -140,7 +146,7 @@ class VarGroup:
         rand_list_var: 'RandVar',
         concrete_values: Dict[str, Any],
     ) -> None:
-        '''
+        """
         Concretize the random length of a list.
 
         This is necessary for a random-length list that needs
@@ -150,7 +156,7 @@ class VarGroup:
 
         :param rand_list_var: Random list variable.
         :param concrete_values: Dict of current concrete values.
-        '''
+        """
         # Only need to do anything if the variable has a random length.
         if rand_list_var.rand_length is not None:
             # Use existing concrete value if it exists.
@@ -169,7 +175,10 @@ class VarGroup:
                 # If we haven't got a value for the random var
                 # in this problem, it must have already been set.
                 if rand_list_var.rand_length_val is None:
-                    raise RuntimeError(f"Internal error: Rand length must be concretized for variable {rand_list_var.name}, but wasn't")
+                    raise RuntimeError(
+                        'Internal error: Rand length must be concretized for '
+                        f"variable {rand_list_var.name}, but wasn't"
+                    )
 
     def solve(
         self,
@@ -177,7 +186,7 @@ class VarGroup:
         solutions_per_group: int,
         debug: bool,
     ) -> Union[List[Dict[str, Any]], None]:
-        '''
+        """
         Attempts to solve one group of variables. Preferentially uses a constraint
         satisfaction problem, but may need to randomize variables that can't be
         added to a constraint satisfaction problem.
@@ -192,7 +201,7 @@ class VarGroup:
             all debug info along the way and not just the final failure.
         :return: A list of all possible solutions for the group, or ``None`` if
             it can't be solved within ``max_iterations`` attempts.
-        '''
+        """
         # Problem is ready to solve, apart from random variables
         solutions = []
         attempts = 0
@@ -214,7 +223,11 @@ class VarGroup:
                     if solutions_per_group == 1:
                         self.problem.addVariable(var.name, (var.randomize(),))
                     else:
-                        iterations = self.max_domain_size if solutions_per_group is None else solutions_per_group
+                        iterations = (
+                            self.max_domain_size
+                            if solutions_per_group is None
+                            else solutions_per_group
+                        )
                         var_domain = []
                         for _ in range(iterations):
                             val = var.randomize()
@@ -251,7 +264,8 @@ class VarGroup:
                 # Failed, add debug info
                 self.debug_info.add_failure(
                     values={name: [] for name in self.group_var_names},
-                    other_variables=dict(self.solution_space))
+                    other_variables=dict(self.solution_space),
+                )
                 return None
 
         return solutions

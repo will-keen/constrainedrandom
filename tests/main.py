@@ -9,7 +9,7 @@ from .test_args import get_argparser
 
 
 def main(package: ModuleType, test_modules: Iterable[ModuleType]) -> None:
-    '''
+    """
     Shared main function for testing and benchmarks.
 
     Runs every test in ``test_modules`` unless test names are given on the
@@ -18,14 +18,14 @@ def main(package: ModuleType, test_modules: Iterable[ModuleType]) -> None:
 
     :param package: The package the test modules belong to.
     :param test_modules: The modules to load tests from.
-    '''
+    """
     parser = get_argparser()
     args, extra = parser.parse_known_args()
     testutils.RandObjTestBase.TEST_LENGTH_MULTIPLIER = args.length_mul
     # Reconstruct argv
     argv = [sys.argv[0]] + extra
     prefix = package.__name__ + '.'
-    default_tests = [module.__name__[len(prefix):] for module in test_modules]
+    default_tests = [module.__name__[len(prefix) :] for module in test_modules]
     result = unittest.main(module=package, defaultTest=default_tests, argv=argv, exit=False).result
     if args.perf:
         dump_perf_data(args.perf_results_file, args.perf_results_tag)

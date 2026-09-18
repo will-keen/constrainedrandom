@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-''' Reusable definitions for unit testing '''
+"""Reusable definitions for unit testing"""
 
 import random
 import unittest
@@ -15,19 +15,19 @@ from .perf_utils import PERF_DICT, add_perf_result
 
 
 def assertListOfDictsEqual(instance, list0, list1, msg) -> None:
-    '''
+    """
     This is missing from unittest. It doesn't like it when two large lists of dictionaries
     are different and compared using `assertListEqual` or `assertEqual`.
-    '''
+    """
     for idx, (i, j) in enumerate(zip(list0, list1)):
-        instance.assertDictEqual(i, j, f"iteration {idx} failed: " + msg)
+        instance.assertDictEqual(i, j, f'iteration {idx} failed: ' + msg)
 
 
 class TestBase(unittest.TestCase):
-    '''
+    """
     Provides utilities for testing randomizable objects,
     and storing performance data.
-    '''
+    """
 
     # Number of iterations to test.
     ITERATIONS = 1000
@@ -38,9 +38,9 @@ class TestBase(unittest.TestCase):
         self.iterations = self.ITERATIONS * self.TEST_LENGTH_MULTIPLIER
 
     def get_full_test_name(self) -> str:
-        '''
+        """
         Returns the full path to the test being run.
-        '''
+        """
         return f'{self.__class__.__module__}.{self.__class__.__name__}.{self._testMethodName}'
 
     def randomize_and_time(
@@ -48,18 +48,18 @@ class TestBase(unittest.TestCase):
         randobj: RandObj,
         iterations: int,
         *,
-        name: Optional[str]=None,
-        tmp_constraints: Optional[List[Any]]=None,
-        tmp_values: Optional[Dict[str, Any]]=None
+        name: Optional[str] = None,
+        tmp_constraints: Optional[List[Any]] = None,
+        tmp_values: Optional[Dict[str, Any]] = None,
     ) -> Tuple[List[Dict[str, Any]], PERF_DICT]:
-        '''
+        """
         Call randobj.randomize() iterations times, time it,
         print performance stats, return the results.
 
         name:       Name of randomizable object.
         randobj:    Randomizable object which must implement `randomize()`.
         iterations: Number of times to run.
-        '''
+        """
         results = []
         cpu_time_taken = 0.0
         wall_time_taken = 0.0
@@ -80,8 +80,11 @@ class TestBase(unittest.TestCase):
         # process_time lacks the resolution to register a duration (on Windows).
         time_taken = cpu_time_taken if cpu_time_taken else wall_time_taken
         hz = iterations / time_taken
-        name_str = "" if name is None else " " + name
-        print(f'{self.get_full_test_name()}:{name_str} took {time_taken:.4g}s for {iterations} iterations ({hz:.1f}Hz)')
+        name_str = '' if name is None else ' ' + name
+        print(
+            f'{self.get_full_test_name()}:{name_str} took {time_taken:.4g}s '
+            f'for {iterations} iterations ({hz:.1f}Hz)'
+        )
         result_name = self.__class__.__name__ if name is None else name
         perf_result = {'time_taken': time_taken, 'iterations': iterations, 'hz': hz}
         add_perf_result(result_name, perf_result)
@@ -89,10 +92,10 @@ class TestBase(unittest.TestCase):
 
 
 class RandObjTestBase(TestBase):
-    '''
+    """
     Provides useful utilities for testing features of constrainedrandom.
     Extend this class to create testcases.
-    '''
+    """
 
     # Expected exception when calling `get_randobj`.
     EXPECTED_ERROR_INIT = None
@@ -102,48 +105,50 @@ class RandObjTestBase(TestBase):
     EXPECTED_ERROR_RAND_MSG = None
 
     def get_randobj(self, *args) -> RandObj:
-        '''
+        """
         Returns an instance of a `RandObj` for this problem, based
         on a given seed.
-        '''
+        """
         pass
 
     def check(self, results) -> None:
-        '''
+        """
         Checks the results of randomization are correct,
         according to the defined problem.
-        '''
+        """
         pass
 
     def get_tmp_constraints(self) -> List[Any]:
-        '''
+        """
         Returns temporary constraints for the problem, if any.
-        '''
+        """
         return None
 
     def get_tmp_values(self) -> Dict[str, Any]:
-        '''
+        """
         Returns temporary values for the problem, if any.
-        '''
+        """
         return None
 
     def tmp_check(self, results) -> None:
-        '''
+        """
         Checks the results of randomization are correct,
         according to the defined problem plus any
         temporary constraints/values.
-        '''
+        """
         pass
 
     def assert_rand_error(self, randomize) -> None:
-        '''
+        """
         Assert that calling ``randomize`` raises ``EXPECTED_ERROR_RAND``, with a
         message matching ``EXPECTED_ERROR_RAND_MSG`` if one is given.
-        '''
+        """
         if self.EXPECTED_ERROR_RAND_MSG is None:
             self.assertRaises(self.EXPECTED_ERROR_RAND, randomize)
         else:
-            self.assertRaisesRegex(self.EXPECTED_ERROR_RAND, self.EXPECTED_ERROR_RAND_MSG, randomize)
+            self.assertRaisesRegex(
+                self.EXPECTED_ERROR_RAND, self.EXPECTED_ERROR_RAND_MSG, randomize
+            )
 
     def randomize_and_check_result(
         self,
@@ -157,15 +162,17 @@ class RandObjTestBase(TestBase):
         expected_add_results: Optional[List[Dict[str, Any]]],
         add_tmp_constraints: bool,
     ) -> None:
-        '''
+        """
         Code to randomize a randobj and check its results against expected
         results.
-        '''
+        """
         if self.EXPECTED_ERROR_RAND is not None:
             self.assert_rand_error(randobj.randomize)
         else:
             results, _perf = self.randomize_and_time(randobj, self.iterations)
-            assertListOfDictsEqual(self, expected_results, results, "Non-determinism detected, results were not equal")
+            assertListOfDictsEqual(
+                self, expected_results, results, 'Non-determinism detected, results were not equal'
+            )
             if do_tmp_checks:
                 # Check applying temporary constraints is also deterministic
                 tmp_results, _perf = self.randomize_and_time(
@@ -178,7 +185,7 @@ class RandObjTestBase(TestBase):
                     self,
                     expected_tmp_results,
                     tmp_results,
-                    "Non-determinism detected, results were not equal with temp constraints"
+                    'Non-determinism detected, results were not equal with temp constraints',
                 )
                 # Check temporary constraints don't break base randomization determinism
                 post_tmp_results, _perf = self.randomize_and_time(randobj, self.iterations)
@@ -186,7 +193,7 @@ class RandObjTestBase(TestBase):
                     self,
                     expected_post_tmp_results,
                     post_tmp_results,
-                    "Non-determinism detected, results were not equal after temp constraints"
+                    'Non-determinism detected, results were not equal after temp constraints',
                 )
                 # Add temporary constraints permanently, see what happens
                 if add_tmp_constraints and tmp_constraints is not None:
@@ -201,18 +208,18 @@ class RandObjTestBase(TestBase):
                         self,
                         expected_add_results,
                         add_results,
-                        "Non-determinism detected, results were not equal after constraints added"
+                        'Non-determinism detected, results were not equal after constraints added',
                     )
 
     def test_randobj(self) -> None:
-        '''
+        """
         Reusable test function to randomize a RandObj for a number of iterations and perform checks.
 
         Tests functionality based on `self.check`.
         Reports performance stats.
         Tests determinism.
         Tests use of temporary constraints and values.
-        '''
+        """
         tmp_constraints = self.get_tmp_constraints()
         tmp_values = self.get_tmp_values()
         do_tmp_checks = tmp_constraints is not None or tmp_values is not None
@@ -240,7 +247,7 @@ class RandObjTestBase(TestBase):
                         randobj,
                         self.iterations,
                         tmp_constraints=tmp_constraints,
-                        tmp_values=tmp_values
+                        tmp_values=tmp_values,
                     )
                     self.tmp_check(tmp_results)
                     # Check temporary constraints don't break base randomization
@@ -300,18 +307,25 @@ class RandObjTestBase(TestBase):
             else:
                 results1, _perf = self.randomize_and_time(randobj1, self.iterations)
                 self.check(results1)
-                self.assertNotEqual(results, results1, "Results were the same for two different seeds, check testcase.")
+                self.assertNotEqual(
+                    results,
+                    results1,
+                    'Results were the same for two different seeds, check testcase.',
+                )
                 if do_tmp_checks:
                     # Check results are also different when applying temporary constraints
                     tmp_results1, _perf = self.randomize_and_time(
                         randobj1,
                         self.iterations,
                         tmp_constraints=tmp_constraints,
-                        tmp_values=tmp_values
+                        tmp_values=tmp_values,
                     )
                     self.tmp_check(tmp_results1)
-                    self.assertNotEqual(tmp_results, tmp_results1,
-                                        "Results were the same for two different seeds, check testcase.")
+                    self.assertNotEqual(
+                        tmp_results,
+                        tmp_results1,
+                        'Results were the same for two different seeds, check testcase.',
+                    )
 
         # Test using global seeding, ensuring results are the same
         # Don't add temp constraints this time, so that we can test this object again.
@@ -382,5 +396,5 @@ class RandObjTestBase(TestBase):
                     randobj0_global_copy,
                     self.iterations,
                     tmp_constraints=tmp_constraints,
-                    tmp_values=tmp_values
+                    tmp_values=tmp_values,
                 )

@@ -1,14 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-'''
+"""
 Miscellaneous utilities for the constrainedrandom package.
-'''
+"""
 
 from functools import partial
 from inspect import getclosurevars
-from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
-
+from typing import Any, Callable, Dict, Iterable, Tuple, Union
 
 # Types treated as immutable when deciding whether a value keeps a function pure.
 _IMMUTABLE_TYPES = (str, int, bool, float, tuple, complex, bytes)
@@ -35,13 +34,15 @@ MAX_ITERATIONS = 100
 # A lower number may improve performance, but make convergence less likely.
 CONSTRAINT_MAX_DOMAIN_SIZE = 1 << 10
 
+
 class RandomizationError(Exception):
-    '''
+    """
     Denotes that a randomization attempt has failed.
-    '''
+    """
+
 
 def unique(list_variable: Iterable[Any]) -> bool:
-    '''
+    """
     Optimal function for testing uniqueness of values in a list.
     Useful constraint on a list.
     O(N) time complexity where N is list length, but also
@@ -52,7 +53,7 @@ def unique(list_variable: Iterable[Any]) -> bool:
     :param list_variable: A list (or any iterable).
     :return: True if every element in the list is unique,
         False otherwise.
-    '''
+    """
     seen = set()
     for i in list_variable:
         if i in seen:
@@ -65,7 +66,7 @@ def check_constraints(
     constraints: Iterable[ConstraintAndVars],
     values: Dict[str, Any],
 ) -> bool:
-    '''
+    """
     Check concrete values against constraints.
 
     Much faster than constructing a ``constraint.Problem``
@@ -78,22 +79,21 @@ def check_constraints(
     :param values: Concrete values, keyed by variable name.
     :return: ``True`` if all constraints are satisfied,
         ``False`` otherwise.
-    '''
+    """
     return all(
-        constr(*(values[var_name] for var_name in var_names))
-        for constr, var_names in constraints
+        constr(*(values[var_name] for var_name in var_names)) for constr, var_names in constraints
     )
 
 
 def is_pure(function: Callable) -> bool:
-    '''
+    """
     Determine whether a function is "pure", i.e. its return value
     is only influenced by its arguments when it is called and by
     nothing else..
 
     :param function: Callable to determine whether it is pure.
     :return: ``True`` if "pure", ``False`` otherwise,
-    '''
+    """
     # A function with __self__ attribute is bound to a class instance,
     # and is therefore not pure.
     if hasattr(function, '__self__'):
@@ -105,9 +105,7 @@ def is_pure(function: Callable) -> bool:
             return False
         if not all(type(arg) in _IMMUTABLE_TYPES for arg in function.args):
             return False
-        if not all(type(arg) in _IMMUTABLE_TYPES for arg in function.keywords.values()):
-            return False
-        return True
+        return all(type(arg) in _IMMUTABLE_TYPES for arg in function.keywords.values())
     # A function that has closure variables that are nonlocal or global
     # is impure. We count functions that use builtins as pure, assuming
     # those builtins themselves are pure.

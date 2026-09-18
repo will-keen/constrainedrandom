@@ -1,21 +1,22 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-'''
+"""
 Test basic features.
-'''
+"""
 
 from enum import Enum, IntEnum
 
 from constrainedrandom import RandObj
 from examples.ldinstr import ldInstr
+
 from .. import testutils
 
 
 class BasicFeatures(testutils.RandObjTestBase):
-    '''
+    """
     Test all basic single random variable features.
-    '''
+    """
 
     ITERATIONS = 10000
 
@@ -29,38 +30,56 @@ class BasicFeatures(testutils.RandObjTestBase):
 
     def get_randobj(self, *args):
         r = RandObj(*args)
-        r.add_rand_var("foo", domain=range(100))
-        r.add_rand_var("bar", domain=(1,2,3,))
-        r.add_rand_var("baz", bits=4)
-        r.add_rand_var("bob", domain={0: 9, 1: 1})
+        r.add_rand_var('foo', domain=range(100))
+        r.add_rand_var(
+            'bar',
+            domain=(
+                1,
+                2,
+                3,
+            ),
+        )
+        r.add_rand_var('baz', bits=4)
+        r.add_rand_var('bob', domain={0: 9, 1: 1})
+
         def not_3(foo):
             return foo != 3
-        r.add_rand_var("dan", domain=range(5), constraints=(not_3,))
+
+        r.add_rand_var('dan', domain=range(5), constraints=(not_3,))
+
         def custom_fn(arg):
             return arg + 1
-        r.add_rand_var("joe", fn=custom_fn, args=(1,))
-        r.add_rand_var("enum", domain=self.MyEnum)
-        r.add_rand_var("int_enum", domain=self.MyIntEnum)
+
+        r.add_rand_var('joe', fn=custom_fn, args=(1,))
+        r.add_rand_var('enum', domain=self.MyEnum)
+        r.add_rand_var('int_enum', domain=self.MyIntEnum)
         return r
 
     def check(self, results):
         for result in results:
             self.assertLessEqual(0, result['foo'])
             self.assertLess(result['foo'], 100)
-            self.assertIn(result['bar'], (1,2,3,))
+            self.assertIn(
+                result['bar'],
+                (
+                    1,
+                    2,
+                    3,
+                ),
+            )
             self.assertLessEqual(0, result['baz'])
             self.assertLess(result['baz'], (1 << 4))
-            self.assertIn(result['bob'], (0,1))
-            self.assertIn(result['dan'], (0,1,2,4))
+            self.assertIn(result['bob'], (0, 1))
+            self.assertIn(result['dan'], (0, 1, 2, 4))
             self.assertEqual(result['joe'], 2)
             self.assertIn(result['enum'], (self.MyEnum.A, self.MyEnum.B))
             self.assertIn(result['int_enum'], (1, 2))
 
 
 class BasicSparse(BasicFeatures):
-    '''
+    """
     Test basic features, only with sparse constraint solver.
-    '''
+    """
 
     def get_randobj(self, *args):
         randobj = super().get_randobj(*args)
@@ -69,9 +88,9 @@ class BasicSparse(BasicFeatures):
 
 
 class BasicThorough(BasicFeatures):
-    '''
+    """
     Test basic features, only with thorough constraint solver.
-    '''
+    """
 
     ITERATIONS = 1000
 
@@ -82,9 +101,9 @@ class BasicThorough(BasicFeatures):
 
 
 class RangeWithStep(testutils.RandObjTestBase):
-    '''
+    """
     Test range domains that use a step.
-    '''
+    """
 
     ITERATIONS = 1000
 
@@ -103,16 +122,18 @@ class RangeWithStep(testutils.RandObjTestBase):
 
 
 class BitsLargeWidth(testutils.RandObjTestBase):
-    '''
+    """
     Test that large values of bits work.
-    '''
+    """
 
     ITERATIONS = 1000
 
     def get_randobj(self, *args):
         r = RandObj(*args)
+
         def not_1(x):
             return x != 1
+
         r.add_rand_var('uint64_t', bits=64, constraints=[not_1])
         r.add_rand_var('uint128_t', bits=128, constraints=[not_1])
         r.add_rand_var('uint256_t', bits=256, constraints=[not_1])
@@ -132,37 +153,41 @@ class BitsLargeWidth(testutils.RandObjTestBase):
 
 
 class BitsLargeWidthMultiVar(testutils.RandObjTestBase):
-    '''
+    """
     Test that large values of bits works with multi variable
     dependencies.
-    '''
+    """
 
     def get_randobj(self, *args):
         r = RandObj(*args)
         r.add_rand_var('big', bits=64)
         r.add_rand_var('small', bits=4)
+
         def mul_lt_big(a, b):
             return a * b < (1 << 64)
+
         r.add_constraint(mul_lt_big, ('big', 'small'))
         r.set_solver_mode(naive=False, sparse=True, thorough=True)
         return r
 
 
 class MultiBasic(testutils.RandObjTestBase):
-    '''
+    """
     Test a basic multi-variable constraint (easy to randomly fulfill the constraint).
-    '''
+    """
 
     ITERATIONS = 100
 
     def get_randobj(self, *args):
         r = RandObj(*args)
-        r.add_rand_var("a", domain=range(10))
-        r.add_rand_var("b", domain=range(10))
-        r.add_rand_var("c", domain=range(5,10))
+        r.add_rand_var('a', domain=range(10))
+        r.add_rand_var('b', domain=range(10))
+        r.add_rand_var('c', domain=range(5, 10))
+
         def abc(a, b, c):
             return a < b < c
-        r.add_constraint(abc, ("a","b","c"))
+
+        r.add_constraint(abc, ('a', 'b', 'c'))
         return r
 
     def check(self, results):
@@ -172,9 +197,10 @@ class MultiBasic(testutils.RandObjTestBase):
 
 
 class MultiPlusOne(testutils.RandObjTestBase):
-    '''
-    Test a slightly trickier multi-variable constraint (much less likely to just randomly get it right).
-    '''
+    """
+    Test a slightly trickier multi-variable constraint (much less likely to just randomly
+    get it right).
+    """
 
     ITERATIONS = 100
 
@@ -182,11 +208,13 @@ class MultiPlusOne(testutils.RandObjTestBase):
         r = RandObj(*args)
         # Very unlikely (1/100) to solve the problem naively, just skip to applying constraints.
         r.set_solver_mode(naive=False)
-        r.add_rand_var("x", domain=range(100), order=0)
-        r.add_rand_var("y", domain=range(100), order=1)
+        r.add_rand_var('x', domain=range(100), order=0)
+        r.add_rand_var('y', domain=range(100), order=1)
+
         def plus_one(x, y):
             return y == x + 1
-        r.add_constraint(plus_one, ("x", "y"))
+
+        r.add_constraint(plus_one, ('x', 'y'))
         return r
 
     def check(self, results):
@@ -195,46 +223,52 @@ class MultiPlusOne(testutils.RandObjTestBase):
 
 
 class MultiSum(testutils.RandObjTestBase):
-    '''
+    """
     Test a much trickier multi-variable constraint.
-    '''
+    """
 
     ITERATIONS = 100
 
     def get_randobj(self, *args):
-        '''
+        """
         Very difficult problem to solve naively, to force the solver
         into using MultiVarProblem. Used by several tests.
-        '''
+        """
         r = RandObj(*args)
         # Very unlikely (1/200^3) to solve the problem naively, just skip to applying constraints.
         r.set_solver_mode(naive=False)
+
         def nonzero(x):
             return x != 0
-        r.add_rand_var("x", domain=range(-100, 100), order=0, constraints=(nonzero,))
-        r.add_rand_var("y", domain=range(-100, 100), order=1, constraints=(nonzero,))
-        r.add_rand_var("z", domain=range(-100, 100), order=1, constraints=(nonzero,))
+
+        r.add_rand_var('x', domain=range(-100, 100), order=0, constraints=(nonzero,))
+        r.add_rand_var('y', domain=range(-100, 100), order=1, constraints=(nonzero,))
+        r.add_rand_var('z', domain=range(-100, 100), order=1, constraints=(nonzero,))
+
         def sum_41(x, y, z):
             return x + y + z == 41
-        r.add_constraint(sum_41, ("x", "y", "z"))
+
+        r.add_constraint(sum_41, ('x', 'y', 'z'))
         return r
 
     def check(self, results):
         for result in results:
-            self.assertEqual(result['x'] + result['y'] + result['z'], 41, f'Check failed for {result=}')
+            self.assertEqual(
+                result['x'] + result['y'] + result['z'], 41, f'Check failed for {result=}'
+            )
             self.assertNotEqual(result['x'], 0, f'Check failed for {result=}')
 
 
 class Dist(testutils.RandObjTestBase):
-    '''
+    """
     Test a distribution.
-    '''
+    """
 
     ITERATIONS = 10000
 
     def get_randobj(self, *args):
         r = RandObj(*args)
-        r.add_rand_var("dist", domain={0: 25, 1 : 25, range(2,5): 50})
+        r.add_rand_var('dist', domain={0: 25, 1: 25, range(2, 5): 50})
         return r
 
     def check(self, results):
@@ -250,7 +284,7 @@ class Dist(testutils.RandObjTestBase):
             elif 2 <= val < 5:
                 count_two_plus += 1
             else:
-                self.fail("too high!")
+                self.fail('too high!')
         # Check it's roughly the right distribution.
         # Work out what the distribution should be,
         modified_iterations = self.ITERATIONS * self.TEST_LENGTH_MULTIPLIER
@@ -267,10 +301,10 @@ class Dist(testutils.RandObjTestBase):
 
 
 class Instr(testutils.RandObjTestBase):
-    '''
+    """
     Test something that looks like an instruction opcode, one of the desired
     use cases for this library.
-    '''
+    """
 
     ITERATIONS = 1000
 
@@ -283,14 +317,14 @@ class Instr(testutils.RandObjTestBase):
             if result['wb']:
                 self.assertNotEqual(result['src0'], result['dst0'])
             address = result['src0_value'] + result['imm0']
-            self.assertLess(address, 0xffffffff)
+            self.assertLess(address, 0xFFFFFFFF)
             self.assertEqual(address & 3, 0)
 
 
 class ThoroughMultiSum(MultiSum):
-    '''
+    """
     Test the thorough solver for a hard problem.
-    '''
+    """
 
     ITERATIONS = 5
 

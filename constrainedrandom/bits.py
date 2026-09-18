@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-'''
+"""
 Reusable utility functions to perform commonly required bitwise operations.
-'''
+"""
+
 
 def get_bitslice(val: int, hi: int, lo: int):
-    '''
+    """
     Function to get a bit slice from a value.
     Equivalent behaviour to SystemVerilog, i.e.
     ``get_bitslice(val, hi, lo)`` in Python
@@ -18,16 +19,16 @@ def get_bitslice(val: int, hi: int, lo: int):
     :param hi: The lowest bit index of the desired slice.
     :return: The requested bit slice.
     :raises ValueError: If lo > hi.
-    '''
+    """
     if lo > hi:
-        raise ValueError("low index must be less than or equal to high index")
+        raise ValueError('low index must be less than or equal to high index')
     size = hi - lo + 1
     mask = (1 << size) - 1
     return (val >> lo) & mask
 
 
 def set_bitslice(val: int, hi: int, lo: int, new_val: int):
-    '''
+    """
     Function to take a value and set a slice of bits to
     a particular value. The function returns that new
     value. The input value is unaffected.
@@ -42,9 +43,9 @@ def set_bitslice(val: int, hi: int, lo: int, new_val: int):
     :param new_val: The new value to be assigned to the slice.
     :return: The modified value.
     :raises ValueError: If lo > hi.
-    '''
+    """
     if lo > hi:
-        raise ValueError("low index must be less than or equal to high index")
+        raise ValueError('low index must be less than or equal to high index')
     size = hi - lo + 1
     mask = (1 << size) - 1
     new_val = new_val & mask

@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-from constrainedrandom import RandObj
 import vsc
+
+from constrainedrandom import RandObj
 
 from ..benchmark_utils import BenchmarkTestCase
 
 
 @vsc.randobj
-class vsc_basic(object):
-
+class vsc_basic:
     def __init__(self):
         self.a = vsc.rand_bit_t(8)
         self.b = vsc.rand_bit_t(8)
@@ -22,7 +22,6 @@ class vsc_basic(object):
 
 
 class cr_basic(RandObj):
-
     def __init__(self):
         super().__init__()
         self.add_rand_var('a', bits=8)
@@ -30,11 +29,10 @@ class cr_basic(RandObj):
         self.add_rand_var('c', bits=8)
         self.add_rand_var('d', bits=8)
 
-        self.add_constraint(lambda a, b : a < b, ('a', 'b'))
+        self.add_constraint(lambda a, b: a < b, ('a', 'b'))
 
 
 class cr_basic_class(RandObj):
-
     def __init__(self):
         super().__init__()
         self.add_rand_var('a', bits=8)
@@ -48,9 +46,9 @@ class cr_basic_class(RandObj):
 
 
 class VSCBasic(BenchmarkTestCase):
-    '''
+    """
     Basic random object from pyvsc documentation.
-    '''
+    """
 
     def get_randobjs(self):
         return {
@@ -65,6 +63,6 @@ class VSCBasic(BenchmarkTestCase):
         # This testcase is typically 40-50x faster, which may vary depending
         # on machine. Ensure it doesn't fall below 30x.
         speedup = perf_results['cr']['hz'] / perf_results['vsc']['hz']
-        self.assertGreater(speedup, 30, "Performance has degraded!")
+        self.assertGreater(speedup, 30, 'Performance has degraded!')
         speedup = perf_results['cr_class']['hz'] / perf_results['vsc']['hz']
-        self.assertGreater(speedup, 30, "Performance has degraded!")
+        self.assertGreater(speedup, 30, 'Performance has degraded!')
