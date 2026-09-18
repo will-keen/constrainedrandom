@@ -7,25 +7,36 @@ Test all supported features.
 Test for determinism within one thread, record performance.
 '''
 
-from .main import main
+import tests
+from tests import (
+    bits,
+    check_constraints,
+    determinism,
+    is_pure,
+    satisfies_constraints,
+    value_in_domain,
+    weighted_choice,
+)
+from tests.features import basic, classes, derived, errors, order, rand_list, temp, user
+from tests.main import main
 
-# Import all tests for unittest to run
-from .bits import *
-from .check_constraints import *
-from .determinism import *
-from .is_pure import *
-from .satisfies_constraints import *
-from .value_in_domain import *
-from .weighted_choice import *
-from .features.basic import *
-from .features.classes import *
-from .features.derived import *
-from .features.errors import *
-from .features.order import *
-from .features.rand_list import *
-from .features.temp import *
-from .features.user import *
-
+TEST_MODULES = [
+    bits,
+    check_constraints,
+    determinism,
+    is_pure,
+    satisfies_constraints,
+    value_in_domain,
+    weighted_choice,
+    basic,
+    classes,
+    derived,
+    errors,
+    order,
+    rand_list,
+    temp,
+    user,
+]
 
 if __name__ == "__main__":
-    main()
+    main(tests, TEST_MODULES)

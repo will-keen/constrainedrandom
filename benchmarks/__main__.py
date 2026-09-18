@@ -5,15 +5,11 @@
 Benchmark against pyvsc library for equivalent testcases.
 '''
 
-
+import benchmarks
+from benchmarks.pyvsc import basic, in_keyword, ldinstr, randlist
 from tests.main import main
 
-from benchmarks.pyvsc.basic import VSCBasic
-from benchmarks.pyvsc.in_keyword import VSCIn
-from benchmarks.pyvsc.ldinstr import VSCInstr
-from benchmarks.pyvsc.randlist import VSCRandListSumZero
-from benchmarks.pyvsc.randlist import VSCRandListUnique
-
+BENCHMARK_MODULES = [basic, in_keyword, ldinstr, randlist]
 
 if __name__ == "__main__":
-    main()
+    main(benchmarks, BENCHMARK_MODULES)
