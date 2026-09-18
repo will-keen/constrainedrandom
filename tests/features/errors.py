@@ -9,11 +9,11 @@ from random import Random
 
 from constrainedrandom import RandObj, RandomizationError
 
-from .basic import MultiSum
+from . import basic
 from .. import testutils
 
 
-class ImpossibleThorough(MultiSum):
+class ImpossibleThorough(basic.MultiSum):
     '''
     Test the thorough solver for a problem that will always fail.
 

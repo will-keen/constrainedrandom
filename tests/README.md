@@ -10,10 +10,13 @@ From the root of the `constrainedrandom` repo:
 python3 -m tests
 ```
 
-This invokes Python `unittest.main()` on all tests. You can optionally specify one test to run, e.g.
+This invokes Python `unittest.main()` on all tests. You can optionally select a module, class or test by name, relative to the `tests` package, e.g.
 
 ```
-python3 -m tests BasicFeatures
+python3 -m tests features.basic
+python3 -m tests features.basic.BasicFeatures
+python3 -m tests features.basic.BasicFeatures.test_randobj
+python3 -m tests bits weighted_choice
 ```
 
 Note: this tests your current local copy of the code, and is not yet integrated with the build/release process.
