@@ -12,6 +12,8 @@ version and says so under **Changed**.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-19
+
 Results with the same problem and same seed may differ from 1.2.2. The entries under **Changed** say for which problems.
 
 ### Added
@@ -139,7 +141,8 @@ First stable release.
 ### Added
 - Initial public release on PyPI. Declarative constrained randomization with `RandObj`: single-variable and multi-variable constraints, ordering hints, and the naive, sparse and thorough solvers.
 
-[Unreleased]: https://github.com/will-keen/constrainedrandom/compare/1.2.2...HEAD
+[Unreleased]: https://github.com/will-keen/constrainedrandom/compare/1.3.0...HEAD
+[1.3.0]: https://github.com/will-keen/constrainedrandom/compare/1.2.2...1.3.0
 [1.2.2]: https://github.com/will-keen/constrainedrandom/compare/1.2.1...1.2.2
 [1.2.1]: https://github.com/will-keen/constrainedrandom/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/will-keen/constrainedrandom/compare/1.1.2...1.2.0
