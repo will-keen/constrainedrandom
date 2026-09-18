@@ -35,6 +35,8 @@ Releases are created using tags from the repository and can be found on [PyPI](h
 
 Versioning attempts to follow [Semantic Versioning](https://semver.org/).
 
+See `CHANGELOG.md` for the changes in each release.
+
 ## Contributions
 
 Please feel free to contribute to the project, following these guidelines:
@@ -45,6 +47,7 @@ Please feel free to contribute to the project, following these guidelines:
 - Pull requests should pass all the tests in the `tests/` directory. Run `python -m tests`.
 - Pull requests should take care not to make performance worse except for cases which require bug fixes. Run `python -m tests` and `python -m benchmarks`.
 - Pull requests should update the documentation for any added/changed functionality.
+- Pull requests should add an entry to the `[Unreleased]` section of `CHANGELOG.md`.
 
 ## Contact the author(s)
 
