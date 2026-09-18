@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Will Keen
 
-'''
+"""
 Test satisfies_constraints method of RandVar.
-'''
+"""
 
 import unittest
 
@@ -22,9 +22,9 @@ def make_var(**kwargs) -> RandVar:
 
 
 class SatisfiesConstraintsTests(unittest.TestCase):
-    '''
+    """
     Test the ``satisfies_constraints`` method of ``RandVar``.
-    '''
+    """
 
     def test_no_constraints(self):
         self.assertEqual(make_var(domain=range(10)).satisfies_constraints(0), True)
@@ -46,14 +46,14 @@ class SatisfiesConstraintsTests(unittest.TestCase):
         self.assertEqual(var.satisfies_constraints([1, 7, 3]), False)
 
     def test_fixed_length_list_constraint(self):
-        var = make_var(domain=range(10), length=3,
-                       list_constraints=[unique])
+        var = make_var(domain=range(10), length=3, list_constraints=[unique])
         self.assertEqual(var.satisfies_constraints([1, 2, 3]), True)
         self.assertEqual(var.satisfies_constraints([1, 1, 2]), False)
 
     def test_element_and_list_constraints(self):
-        var = make_var(domain=range(10), length=3, constraints=[lambda v: v != 7],
-                       list_constraints=[unique])
+        var = make_var(
+            domain=range(10), length=3, constraints=[lambda v: v != 7], list_constraints=[unique]
+        )
         self.assertEqual(var.satisfies_constraints([1, 2, 3]), True)
         # element constraint violated
         self.assertEqual(var.satisfies_constraints([1, 7, 3]), False)
@@ -67,8 +67,9 @@ class SatisfiesConstraintsTests(unittest.TestCase):
         self.assertEqual(var.satisfies_constraints([1, 7]), False)
 
     def test_rand_length_list_constraint(self):
-        var = make_var(domain=range(10), rand_length='n',
-                       list_constraints=[lambda lst: sum(lst) < 10])
+        var = make_var(
+            domain=range(10), rand_length='n', list_constraints=[lambda lst: sum(lst) < 10]
+        )
         self.assertEqual(var.satisfies_constraints([1, 2, 3]), True)
         self.assertEqual(var.satisfies_constraints([5, 6]), False)
 

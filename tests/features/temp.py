@@ -1,23 +1,24 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-'''
+"""
 Test temporary constraints and values.
-'''
+"""
 
 import unittest
 from random import Random
 
 from constrainedrandom import RandObj, RandomizationError
 from constrainedrandom.utils import unique
-from . import basic
+
 from .. import testutils
+from . import basic
 
 
 class TempConstraint(testutils.RandObjTestBase):
-    '''
+    """
     Test using a simple temporary constraint.
-    '''
+    """
 
     ITERATIONS = 1000
 
@@ -32,11 +33,12 @@ class TempConstraint(testutils.RandObjTestBase):
             self.assertIn(result['a'], range(10))
             if result['a'] >= 5:
                 seen_gt_4 = True
-        self.assertTrue(seen_gt_4, "Temporary constraint followed when not given")
+        self.assertTrue(seen_gt_4, 'Temporary constraint followed when not given')
 
     def get_tmp_constraints(self):
         def tmp_constraint(a):
             return a < 5
+
         return [(tmp_constraint, ('a',))]
 
     def tmp_check(self, results):
@@ -45,9 +47,9 @@ class TempConstraint(testutils.RandObjTestBase):
 
 
 class TempMultiConstraint(testutils.RandObjTestBase):
-    '''
+    """
     Test using a temporary multi-variable constraint.
-    '''
+    """
 
     ITERATIONS = 1000
 
@@ -64,11 +66,12 @@ class TempMultiConstraint(testutils.RandObjTestBase):
             self.assertIn(result['b'], range(100))
             if result['a'] * result['b'] >= 200 and result['a'] >= 5:
                 seen_tmp_constraint_false = True
-        self.assertTrue(seen_tmp_constraint_false, "Temporary constraint followed when not given")
+        self.assertTrue(seen_tmp_constraint_false, 'Temporary constraint followed when not given')
 
     def get_tmp_constraints(self):
         def a_mul_b_lt_200(a, b):
             return a * b < 200
+
         return [(a_mul_b_lt_200, ('a', 'b'))]
 
     def tmp_check(self, results):
@@ -81,9 +84,9 @@ class TempMultiConstraint(testutils.RandObjTestBase):
 
 
 class MixedTempConstraints(testutils.RandObjTestBase):
-    '''
+    """
     Test using a temporary multi-variable constraint, with a single-variable constraint.
-    '''
+    """
 
     ITERATIONS = 1000
 
@@ -100,7 +103,7 @@ class MixedTempConstraints(testutils.RandObjTestBase):
             self.assertIn(result['b'], range(100))
             if result['a'] * result['b'] >= 200 and result['a'] >= 5:
                 seen_tmp_constraint_false = True
-        self.assertTrue(seen_tmp_constraint_false, "Temporary constraint followed when not given")
+        self.assertTrue(seen_tmp_constraint_false, 'Temporary constraint followed when not given')
 
     def tmp_check(self, results):
         for result in results:
@@ -113,16 +116,18 @@ class MixedTempConstraints(testutils.RandObjTestBase):
     def get_tmp_constraints(self):
         def a_lt_5(a):
             return a < 5
+
         def a_mul_b_lt_200(a, b):
             return a * b < 200
+
         return [(a_lt_5, ('a',)), (a_mul_b_lt_200, ('a', 'b'))]
 
 
 class TrickyTempConstraints(basic.MultiSum):
-    '''
+    """
     Force use of MultiVarProblem with a difficult problem, and
     also use temporary constraints.
-    '''
+    """
 
     ITERATIONS = 30
 
@@ -135,13 +140,14 @@ class TrickyTempConstraints(basic.MultiSum):
         # where all conditions are not respected.
         temp_constraint_respected = True
         for result in results:
-            if result['x'] + result['y'] >= 50 and \
-                result['x'] % 2 != 0 and \
-                (result['y'] + result['z']) % 3 != 0:
+            if (
+                result['x'] + result['y'] >= 50
+                and result['x'] % 2 != 0
+                and (result['y'] + result['z']) % 3 != 0
+            ):
                 temp_constraint_respected = False
         self.assertFalse(
-            temp_constraint_respected,
-            "Temp constraint should not be followed when not applied"
+            temp_constraint_respected, 'Temp constraint should not be followed when not applied'
         )
 
     def get_tmp_constraints(self):
@@ -150,14 +156,17 @@ class TrickyTempConstraints(basic.MultiSum):
 
         def tmp_abs_sum_xy_lt50(x, y):
             return abs(x) + abs(y) < 50
+
         tmp_constraints.append((tmp_abs_sum_xy_lt50, ('x', 'y')))
 
         def tmp_x_mod2(x):
             return x % 2 == 0
+
         tmp_constraints.append((tmp_x_mod2, ('x',)))
 
         def tmp_yz_mod3(y, z):
             return (y + z) % 3 == 0
+
         tmp_constraints.append((tmp_yz_mod3, ('y', 'z')))
 
         return tmp_constraints
@@ -168,15 +177,15 @@ class TrickyTempConstraints(basic.MultiSum):
         super().check(results)
         # Temp constraint respected
         for result in results:
-            self.assertLess(result['x'] + result['y'], 50, "Temp constraint not respected")
-            self.assertTrue(result['x'] % 2 == 0, "Temp constraint not respected")
-            self.assertTrue((result['y'] + result['z']) % 3 == 0, "Temp constraint not respected")
+            self.assertLess(result['x'] + result['y'], 50, 'Temp constraint not respected')
+            self.assertTrue(result['x'] % 2 == 0, 'Temp constraint not respected')
+            self.assertTrue((result['y'] + result['z']) % 3 == 0, 'Temp constraint not respected')
 
 
 class WithValues(testutils.RandObjTestBase):
-    '''
+    """
     Basic test for with_values.
-    '''
+    """
 
     ITERATIONS = 1000
 
@@ -206,9 +215,9 @@ class WithValues(testutils.RandObjTestBase):
 
 
 class WithValuesWithConstraints(testutils.RandObjTestBase):
-    '''
+    """
     Test how with_values and with_constraints interact.
-    '''
+    """
 
     ITERATIONS = 1000
 
@@ -228,14 +237,16 @@ class WithValuesWithConstraints(testutils.RandObjTestBase):
                 seen_tmp_constraint_false = True
             if result['a'] != 3:
                 seen_tmp_value_false = True
-        self.assertTrue(seen_tmp_constraint_false, "Temporary constraint followed when not given")
-        self.assertTrue(seen_tmp_value_false, "Temporary value followed when not given")
+        self.assertTrue(seen_tmp_constraint_false, 'Temporary constraint followed when not given')
+        self.assertTrue(seen_tmp_value_false, 'Temporary value followed when not given')
 
     def get_tmp_constraints(self):
         def a_lt_5(a):
             return a < 5
+
         def a_mul_b_lt_200(a, b):
             return a * b < 200
+
         return [(a_lt_5, ('a',)), (a_mul_b_lt_200, ('a', 'b'))]
 
     def get_tmp_values(self):
@@ -253,9 +264,9 @@ class WithValuesWithConstraints(testutils.RandObjTestBase):
 
 
 class WithValuesAllConstrainedVars(testutils.RandObjTestBase):
-    '''
+    """
     Test with_values when values are given for all constrained variables.
-    '''
+    """
 
     ITERATIONS = 100
 
@@ -266,8 +277,10 @@ class WithValuesAllConstrainedVars(testutils.RandObjTestBase):
         # Unconstrained, so that results still differ between seeds
         # when both constrained variables are given values.
         r.add_rand_var('c', domain=range(100))
+
         def sum_gt_5(a, b):
             return a + b > 5
+
         r.add_constraint(sum_gt_5, ('a', 'b'))
         # Skip the naive solver so the values reach MultiVarProblem.
         r.set_solver_mode(naive=False)
@@ -289,10 +302,10 @@ class WithValuesAllConstrainedVars(testutils.RandObjTestBase):
 
 
 class WithValuesRandLengthList(testutils.RandObjTestBase):
-    '''
+    """
     Test that a list given in with_values keeps its value
     while its length variable is re-randomized.
-    '''
+    """
 
     ITERATIONS = 100
 
@@ -307,22 +320,22 @@ class WithValuesRandLengthList(testutils.RandObjTestBase):
 
     def check(self, results):
         for result in results:
-            self.assertEqual(result['length'], len(result['listvar']), "Length incorrect")
+            self.assertEqual(result['length'], len(result['listvar']), 'Length incorrect')
 
     def get_tmp_values(self):
         return {'listvar': [3, 6]}
 
     def tmp_check(self, results):
         for result in results:
-            self.assertEqual(result['listvar'], [3, 6], "Temp value not respected")
-            self.assertEqual(result['length'], 2, "Length incorrect")
+            self.assertEqual(result['listvar'], [3, 6], 'Temp value not respected')
+            self.assertEqual(result['length'], 2, 'Length incorrect')
 
 
 class WithValuesRandLengthMultiList(testutils.RandObjTestBase):
-    '''
+    """
     Test that giving one of several lists that share a length variable a
     concrete value fixes the length variable, and the other lists follow.
-    '''
+    """
 
     ITERATIONS = 100
 
@@ -335,24 +348,24 @@ class WithValuesRandLengthMultiList(testutils.RandObjTestBase):
 
     def check(self, results):
         for result in results:
-            self.assertEqual(result['length'], len(result['list_a']), "Length incorrect")
-            self.assertEqual(result['length'], len(result['list_b']), "Length incorrect")
+            self.assertEqual(result['length'], len(result['list_a']), 'Length incorrect')
+            self.assertEqual(result['length'], len(result['list_b']), 'Length incorrect')
 
     def get_tmp_values(self):
         return {'list_a': [1, 2, 9]}
 
     def tmp_check(self, results):
         for result in results:
-            self.assertEqual(result['list_a'], [1, 2, 9], "Temp value not respected")
-            self.assertEqual(result['length'], 3, "Length not derived from list value")
-            self.assertEqual(len(result['list_b']), 3, "Other list did not follow length")
+            self.assertEqual(result['list_a'], [1, 2, 9], 'Temp value not respected')
+            self.assertEqual(result['length'], 3, 'Length not derived from list value')
+            self.assertEqual(len(result['list_b']), 3, 'Other list did not follow length')
 
 
 class WithValuesRandLengthAndLength(testutils.RandObjTestBase):
-    '''
+    """
     Test giving both a list and its length variable concrete values
     that agree.
-    '''
+    """
 
     ITERATIONS = 100
 
@@ -366,26 +379,26 @@ class WithValuesRandLengthAndLength(testutils.RandObjTestBase):
 
     def check(self, results):
         for result in results:
-            self.assertEqual(result['length'], len(result['listvar']), "Length incorrect")
+            self.assertEqual(result['length'], len(result['listvar']), 'Length incorrect')
 
     def get_tmp_values(self):
         return {'length': 2, 'listvar': [3, 6]}
 
     def tmp_check(self, results):
         for result in results:
-            self.assertEqual(result['listvar'], [3, 6], "Temp value not respected")
-            self.assertEqual(result['length'], 2, "Length incorrect")
+            self.assertEqual(result['listvar'], [3, 6], 'Temp value not respected')
+            self.assertEqual(result['length'], 2, 'Length incorrect')
 
 
 class WithValuesRandLengthContradictions(unittest.TestCase):
-    '''
+    """
     Test that contradictory concrete values for a random list and its
     length variable raise.
 
     These are plain ``TestCase`` checks because the contradiction only
     arises for a specific ``with_values`` passed to ``randomize``, which
     the ``RandObjTestBase`` error mechanism cannot express.
-    '''
+    """
 
     def test_length_value_mismatch(self):
         r = RandObj(Random(0))
@@ -413,9 +426,9 @@ class WithValuesRandLengthContradictions(unittest.TestCase):
 
 
 class WithValuesValidation(unittest.TestCase):
-    '''
+    """
     Test that with_values is validated against the variables.
-    '''
+    """
 
     def test_unknown_variable(self):
         r = RandObj(Random(0))
@@ -467,8 +480,9 @@ class WithValuesValidation(unittest.TestCase):
     def test_rand_length_list_element_constraint_violated(self):
         r = RandObj(Random(0))
         r.add_rand_var('length', domain=range(1, 6))
-        r.add_rand_var('listvar', domain=range(10), rand_length='length',
-                       constraints=[lambda v: v != 7])
+        r.add_rand_var(
+            'listvar', domain=range(10), rand_length='length', constraints=[lambda v: v != 7]
+        )
         # In domain, right length, but element 7 violates the constraint.
         with self.assertRaises(RandomizationError):
             r.randomize(with_values={'listvar': [1, 7, 3]})
@@ -476,27 +490,30 @@ class WithValuesValidation(unittest.TestCase):
     def test_rand_length_list_constraint_violated(self):
         r = RandObj(Random(0))
         r.add_rand_var('length', domain=range(1, 6))
-        r.add_rand_var('listvar', domain=range(10), rand_length='length',
-                       list_constraints=[unique])
+        r.add_rand_var('listvar', domain=range(10), rand_length='length', list_constraints=[unique])
         with self.assertRaises(RandomizationError):
             r.randomize(with_values={'listvar': [1, 1, 2]})
 
     def test_rand_length_list_value_ok(self):
         r = RandObj(Random(0))
         r.add_rand_var('length', domain=range(1, 6))
-        r.add_rand_var('listvar', domain=range(10), rand_length='length',
-                       constraints=[lambda v: v != 7],
-                       list_constraints=[unique])
+        r.add_rand_var(
+            'listvar',
+            domain=range(10),
+            rand_length='length',
+            constraints=[lambda v: v != 7],
+            list_constraints=[unique],
+        )
         r.randomize(with_values={'listvar': [1, 2, 3]})
         self.assertEqual(r.listvar, [1, 2, 3])
         self.assertEqual(r.length, 3)
 
 
 class TrickyTempValues(basic.MultiSum):
-    '''
+    """
     Force use of MultiVarProblem with a difficult problem, and
     also use temporary constraints and temporary values.
-    '''
+    """
 
     ITERATIONS = 50
 
@@ -510,20 +527,16 @@ class TrickyTempValues(basic.MultiSum):
         temp_constraint_respected = True
         temp_value_respected = True
         for result in results:
-            if result['x'] + result['y'] >= 50 and \
-                (result['x'] % 2 == 1 or \
-                    (result['y'] + result['z']) % 2 == 0):
+            if result['x'] + result['y'] >= 50 and (
+                result['x'] % 2 == 1 or (result['y'] + result['z']) % 2 == 0
+            ):
                 temp_constraint_respected = False
             if result['x'] != 6:
                 temp_value_respected = False
         self.assertFalse(
-            temp_constraint_respected,
-            "Temp constraint should not be followed when not applied"
+            temp_constraint_respected, 'Temp constraint should not be followed when not applied'
         )
-        self.assertFalse(
-            temp_value_respected,
-            "Temp value should not be followed when not applied"
-        )
+        self.assertFalse(temp_value_respected, 'Temp value should not be followed when not applied')
 
     def get_tmp_constraints(self):
         # Use a few extra temporary constraints to make the problem even harder
@@ -531,14 +544,17 @@ class TrickyTempValues(basic.MultiSum):
 
         def tmp_abs_sum_xy_lt50(x, y):
             return abs(x) + abs(y) < 50
+
         tmp_constraints.append((tmp_abs_sum_xy_lt50, ('x', 'y')))
 
         def tmp_x_mod2(x):
             return x % 2 == 0
+
         tmp_constraints.append((tmp_x_mod2, ('x',)))
 
         def tmp_yz_mod3(y, z):
             return (y + z) % 2 == 1
+
         tmp_constraints.append((tmp_yz_mod3, ('y', 'z')))
 
         return tmp_constraints
@@ -552,7 +568,7 @@ class TrickyTempValues(basic.MultiSum):
         super().check(results)
         # Temp constraint respected
         for result in results:
-            self.assertLess(result['x'] + result['y'], 50, "Temp constraint not respected")
-            self.assertTrue(result['x'] % 2 == 0, "Temp constraint not respected")
-            self.assertTrue((result['y'] + result['z']) % 2 == 1, "Temp constraint not respected")
-            self.assertEqual(result['x'], 6, "Temp value not respected")
+            self.assertLess(result['x'] + result['y'], 50, 'Temp constraint not respected')
+            self.assertTrue(result['x'] % 2 == 0, 'Temp constraint not respected')
+            self.assertTrue((result['y'] + result['z']) % 2 == 1, 'Temp constraint not respected')
+            self.assertEqual(result['x'], 6, 'Temp value not respected')

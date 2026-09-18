@@ -6,16 +6,16 @@ from tests.testutils import TestBase
 
 
 class BenchmarkTestCase(TestBase):
-    '''
+    """
     Class to be overridden to provide benchmark
     test cases.
-    '''
+    """
 
     def test_benchmark(self):
-        '''
+        """
         Reusable function to run a fair benchmark between
         two or more randomizable objects.
-        '''
+        """
         results = {}
         winner = None
         best_hz = 0
@@ -23,7 +23,7 @@ class BenchmarkTestCase(TestBase):
         for name, randobj in randobjs.items():
             # Attempt fairness by re-seeding each time
             random.seed(0)
-            full_name = self.__class__.__name__ + f".{name}"
+            full_name = self.__class__.__name__ + f'.{name}'
             _result, perf_result = self.randomize_and_time(randobj, self.iterations, name=full_name)
             if perf_result['hz'] > best_hz:
                 winner = name
@@ -41,20 +41,20 @@ class BenchmarkTestCase(TestBase):
         self.check_perf(results)
 
     def check_perf(self, perf_results: Dict[str, PERF_DICT]):
-        '''
+        """
         Implement this to check the expected performance results
         for a given testcase.
 
         perf_results: Performance results as captured.
-        '''
-        raise NotImplementedError("Benchmark test cases should check performance")
+        """
+        raise NotImplementedError('Benchmark test cases should check performance')
 
     def get_randobjs(self) -> Dict[str, Any]:
-        '''
+        """
         Implement this to return the objects to test.
 
         Returns a dictionary with index as the string name
         of the random object, value as the object which implements
         `.randomize()`.
-        '''
-        raise NotImplementedError("Benchmark test cases must implement get_randobjs()")
+        """
+        raise NotImplementedError('Benchmark test cases must implement get_randobjs()')

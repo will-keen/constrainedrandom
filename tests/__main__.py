@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-'''
+"""
 Test all supported features.
 
 Test for determinism within one thread, record performance.
-'''
+"""
 
 import tests
 from tests import (
@@ -38,5 +38,5 @@ TEST_MODULES = [
     user,
 ]
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main(tests, TEST_MODULES)

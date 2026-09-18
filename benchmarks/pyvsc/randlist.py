@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
-'''
+"""
 Random list examples where constrainedrandom has previously struggled.
-'''
+"""
+
+import vsc
 
 from constrainedrandom import RandObj
 from constrainedrandom.utils import unique
-import vsc
 
 from ..benchmark_utils import BenchmarkTestCase
 
 
 @vsc.randobj
-class vscRandListSumZero(object):
-
+class vscRandListSumZero:
     def __init__(self):
         self.listvar = vsc.rand_list_t(vsc.int8_t(), 10)
 
@@ -30,7 +30,6 @@ class vscRandListSumZero(object):
 
 
 class crRandListSumZero(RandObj):
-
     def __init__(self, *args):
         super().__init__(*args)
         self.add_rand_var('listvar', domain=range(-10, 11), length=10)
@@ -41,10 +40,11 @@ class crRandListSumZero(RandObj):
 
 
 class crRandListSumZeroFaster(RandObj):
-
     def __init__(self, *args):
         super().__init__(*args)
-        self.add_rand_var('listvar', domain=range(-10, 11), length=10, disable_naive_list_solver=True)
+        self.add_rand_var(
+            'listvar', domain=range(-10, 11), length=10, disable_naive_list_solver=True
+        )
         self.add_constraint(self.sum_0, ('listvar',))
 
     def sum_0(self, listvar):
@@ -52,9 +52,9 @@ class crRandListSumZeroFaster(RandObj):
 
 
 class VSCRandListSumZero(BenchmarkTestCase):
-    '''
+    """
     Test random list example where the list must sum to zero.
-    '''
+    """
 
     def get_randobjs(self):
         return {
@@ -69,14 +69,13 @@ class VSCRandListSumZero(BenchmarkTestCase):
         # This testcase is typically 20x faster, which may vary depending
         # on machine. Ensure it doesn't fall below 15x.
         speedup = results['cr']['hz'] / results['vsc']['hz']
-        self.assertGreater(speedup, 15, "Performance has degraded!")
+        self.assertGreater(speedup, 15, 'Performance has degraded!')
         speedup = results['cr_faster']['hz'] / results['vsc']['hz']
-        self.assertGreater(speedup, 15, "Performance has degraded!")
+        self.assertGreater(speedup, 15, 'Performance has degraded!')
 
 
 @vsc.randobj
-class vscRandListUnique(object):
-
+class vscRandListUnique:
     def __init__(self):
         self.listvar = vsc.rand_list_t(vsc.uint8_t(), 10)
 
@@ -92,17 +91,16 @@ class vscRandListUnique(object):
 
 
 class crRandListUnique(RandObj):
-
     def __init__(self, *args):
         super().__init__(*args)
         self.add_rand_var('listvar', domain=range(10), length=10, list_constraints=[unique])
 
 
 class crRandListUniqueFaster(RandObj):
-
     def __init__(self, *args):
         super().__init__(*args)
-        self.add_rand_var('listvar',
+        self.add_rand_var(
+            'listvar',
             domain=range(10),
             length=10,
             list_constraints=[unique],
@@ -111,9 +109,9 @@ class crRandListUniqueFaster(RandObj):
 
 
 class VSCRandListUnique(BenchmarkTestCase):
-    '''
+    """
     Test random list example where the list must be unique.
-    '''
+    """
 
     def get_randobjs(self):
         return {
@@ -129,8 +127,8 @@ class VSCRandListUnique(BenchmarkTestCase):
         # which may vary depending on machine. Ensure it doesn't fall
         # below 2x.
         speedup = results['cr']['hz'] / results['vsc']['hz']
-        self.assertGreater(speedup, 2, "Performance has degraded!")
+        self.assertGreater(speedup, 2, 'Performance has degraded!')
         # This testcase is typically 10-13x faster, which may vary depending
         # on machine. Ensure it doesn't fall below 10x.
         speedup = results['cr_faster']['hz'] / results['vsc']['hz']
-        self.assertGreater(speedup, 10, "Performance has degraded!")
+        self.assertGreater(speedup, 10, 'Performance has degraded!')

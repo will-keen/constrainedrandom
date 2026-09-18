@@ -7,14 +7,14 @@ from constrainedrandom import RandObj
 
 
 def read_model_for_src0_value():
-    '''
+    """
     Pretend getter for src0 current value.
-    '''
-    return 0xfffffbcd
+    """
+    return 0xFFFFFBCD
 
 
 class ldInstr(RandObj):
-    '''
+    """
     A made-up load instruction has the following fields (starting at LSB):
     - imm0 (11 bits): immediate offset for memory address
     - src0 ( 5 bits): source register for memory address
@@ -28,8 +28,9 @@ class ldInstr(RandObj):
     - The sum of the current contents of src0 and imm0 should be word-aligned.
     - The sum of the current contents of src0 and imm0 should not overflow 32
     bits.
-    '''
-    ENC = 0xfa800000
+    """
+
+    ENC = 0xFA800000
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -48,7 +49,7 @@ class ldInstr(RandObj):
 
     def sum_src0_imm0(self, src0_value, imm0):
         address = src0_value + imm0
-        return (address & 3 == 0) and (address < 0xffffffff)
+        return (address & 3 == 0) and (address < 0xFFFFFFFF)
 
     def post_randomize(self):
         self.opcode = self.get_opcode()
@@ -62,7 +63,7 @@ class ldInstr(RandObj):
         return opcode
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Use a seed of 0 so our results are repeatable
     random.seed(0)
     ld_instr = ldInstr()

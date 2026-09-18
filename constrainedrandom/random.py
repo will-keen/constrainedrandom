@@ -2,14 +2,13 @@
 # Copyright (c) 2023 Imagination Technologies Ltd. All Rights Reserved
 
 import random
-
 from typing import Any, Optional
 
 from . import utils
 
 
-def weighted_choice(choices_dict: utils.Dist, _random: Optional[random.Random]=None) -> Any:
-    '''
+def weighted_choice(choices_dict: utils.Dist, _random: Optional[random.Random] = None) -> Any:
+    """
     Wrapper around ``random.choices``, allowing the user to specify weights in a dictionary.
 
     :param choices_dict: A dict containing the possible values as keys and relative
@@ -23,14 +22,14 @@ def weighted_choice(choices_dict: utils.Dist, _random: Optional[random.Random]=N
 
         # 0 will be chosen 25% of the time, 1 25% of the time and 'foo' 50% of the time
         value = weighted_choice({0: 25, 1: 25, 'foo': 50})
-    '''
+    """
     if _random is None:
         _random = random
     return _random.choices(tuple(choices_dict.keys()), weights=tuple(choices_dict.values()))[0]
 
 
-def dist(dist_dict: utils.Dist, _random: Optional[random.Random]=None) -> Any:
-    '''
+def dist(dist_dict: utils.Dist, _random: Optional[random.Random] = None) -> Any:
+    """
     Random distribution. As :func:`weighted_choice`, but allows ``range`` to be used as
     a key to the dictionary, which if chosen is then evaluated as a random range.
 
@@ -48,7 +47,7 @@ def dist(dist_dict: utils.Dist, _random: Optional[random.Random]=None) -> Any:
         # 0 will be chosen 25% of the time, a value in the range 1 to 9 25% of the time
         # and 'foo' 50% of the time
         value = dist({0: 25, range(1, 10): 25, 'foo': 50})
-    '''
+    """
     if _random is None:
         _random = random
     answer = weighted_choice(choices_dict=dist_dict, _random=_random)
