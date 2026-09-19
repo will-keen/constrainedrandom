@@ -9,7 +9,7 @@ import vsc
 
 from examples.ldinstr import ldInstr
 
-from ..benchmark_utils import BenchmarkTestCase
+from .. import benchmark_utils
 
 
 @vsc.randobj
@@ -34,7 +34,7 @@ class vsc_ldinstr:
         (self.imm0 + self.src0_value_getter()) & 3 == 0
 
 
-class VSCInstr(BenchmarkTestCase):
+class VSCInstr(benchmark_utils.BenchmarkTestCase):
     """
     Test LD instruction example.
     """

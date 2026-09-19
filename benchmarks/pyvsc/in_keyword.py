@@ -5,7 +5,7 @@ import vsc
 
 from constrainedrandom import RandObj
 
-from ..benchmark_utils import BenchmarkTestCase
+from .. import benchmark_utils
 
 
 @vsc.randobj
@@ -75,7 +75,7 @@ class cr_in_order(RandObj):
         self.add_constraint(b_in_range, ('b', 'c', 'd'))
 
 
-class VSCIn(BenchmarkTestCase):
+class VSCIn(benchmark_utils.BenchmarkTestCase):
     """
     Random object using 'in' keyword from pyvsc documentation.
     """

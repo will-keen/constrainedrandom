@@ -5,7 +5,7 @@ import vsc
 
 from constrainedrandom import RandObj
 
-from ..benchmark_utils import BenchmarkTestCase
+from .. import benchmark_utils
 
 
 @vsc.randobj
@@ -45,7 +45,7 @@ class cr_basic_class(RandObj):
         return a < b
 
 
-class VSCBasic(BenchmarkTestCase):
+class VSCBasic(benchmark_utils.BenchmarkTestCase):
     """
     Basic random object from pyvsc documentation.
     """
