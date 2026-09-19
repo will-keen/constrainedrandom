@@ -10,7 +10,7 @@ import vsc
 from constrainedrandom import RandObj
 from constrainedrandom.utils import unique
 
-from ..benchmark_utils import BenchmarkTestCase
+from .. import benchmark_utils
 
 
 @vsc.randobj
@@ -51,7 +51,7 @@ class crRandListSumZeroFaster(RandObj):
         return sum(listvar) == 0
 
 
-class VSCRandListSumZero(BenchmarkTestCase):
+class VSCRandListSumZero(benchmark_utils.BenchmarkTestCase):
     """
     Test random list example where the list must sum to zero.
     """
@@ -108,7 +108,7 @@ class crRandListUniqueFaster(RandObj):
         )
 
 
-class VSCRandListUnique(BenchmarkTestCase):
+class VSCRandListUnique(benchmark_utils.BenchmarkTestCase):
     """
     Test random list example where the list must be unique.
     """
