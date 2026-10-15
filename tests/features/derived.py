@@ -604,6 +604,64 @@ class DerivedTwoInputsWithValues(DerivedTwoInputs):
             self.assertEqual(result['d'], result['a'] * 10 + 3, 'Derived value incorrect')
 
 
+class DerivedInputConstrained(testutils.RandObjTestBase):
+    """
+    Test a derived variable of two inputs, one in a multi-variable constraint.
+    """
+
+    ITERATIONS = 1000
+
+    def get_randobj(self, *args):
+        r = RandObj(*args)
+        r.add_rand_var('a', domain=range(4))
+        r.add_rand_var('b', domain=range(2))
+        r.add_rand_var('x', domain=range(4))
+        r.add_rand_var('d', fn=lambda a, b: a * 10 + b, rand_var_args=('a', 'b'))
+        r.add_constraint(lambda a, x: a != x, ('a', 'x'))
+        return r
+
+    def check(self, results):
+        for result in results:
+            self.assertEqual(result['d'], result['a'] * 10 + result['b'], 'Derived value incorrect')
+            self.assertNotEqual(result['a'], result['x'], 'Constraint not respected')
+
+
+class DerivedConstrainedAfterInput(DerivedInputConstrained):
+    """
+    Test a constraint on a derived variable, added after a constraint on one of its inputs.
+    """
+
+    def get_randobj(self, *args):
+        r = super().get_randobj(*args)
+        # Only b can make d odd.
+        r.add_constraint(lambda d: d % 2 == 1, ('d',))
+        return r
+
+    def check(self, results):
+        super().check(results)
+        for result in results:
+            self.assertEqual(result['b'], 1, 'Constraint on derived variable not respected')
+
+
+class DerivedTmpConstrainedAfterInput(DerivedInputConstrained):
+    """
+    Test a temporary constraint on a derived variable, one of whose inputs is constrained.
+    """
+
+    def get_tmp_constraints(self):
+        def d_odd(d):
+            return d % 2 == 1
+
+        return [(d_odd, ('d',))]
+
+    def tmp_check(self, results):
+        self.check(results)
+        for result in results:
+            self.assertEqual(
+                result['b'], 1, 'Temporary constraint on derived variable not respected'
+            )
+
+
 class DerivedRepeatedInput(testutils.RandObjTestBase):
     """
     Test the same input named twice in ``rand_var_args``.
