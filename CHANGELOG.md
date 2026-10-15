@@ -12,6 +12,9 @@ version and says so under **Changed**.
 
 ## [Unreleased]
 
+### Fixed
+- A constraint on a derived variable did not re-randomize all of its inputs when another constraint already named one of them. For example, with `c = a + b`, adding constraints `a != x` and then `c == 2` never re-randomized `b`. Seeded results change for such problems.
+
 ## [1.3.0] - 2026-09-19
 
 Results with the same problem and same seed may differ from 1.2.2. The entries under **Changed** say for which problems.

@@ -225,8 +225,9 @@ class RandObj:
         - any derived variable that names it in ``rand_var_args``, but not
           that variable's other inputs, which have no reason to change.
 
-        This repeats for each newly marked variable. It terminates because a
-        variable that is already marked is skipped, so each is visited at most once.
+        This repeats for each newly marked variable. Visiting an already-marked
+        variable terminates to prevent infinite loops. A derived variable has to
+        mark all of its inputs, which can't form a cycle by construction.
 
         :param name: Variable to mark as constrained.
         :param constrained: Set of constrained variable names to update.
@@ -235,6 +236,10 @@ class RandObj:
         if constrained is None:
             constrained = self._constrained_vars
         if name in constrained:
+            # A derived variable may be marked without its inputs, so mark them here.
+            if name in self._derived_vars:
+                for dep in self._random_vars[name].rand_var_args:
+                    self._mark_constrained(dep, constrained)
             return
         constrained.add(name)
         # If this variable controls others' lengths, they are constrained too.
